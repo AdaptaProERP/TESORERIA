@@ -9,7 +9,7 @@
 #INCLUDE "DPXBASE.CH"
 
 FUNCTION MAIN(oLIBCOMEDIT)
-   LOCAL oCursor,oBar,oBtn,oFont,oFontB,oCol
+   LOCAL oCursor,oBar,oBtn,oFont,oFontB,oCol,lSay:=.F.
    LOCAL oDlg:=NIL // IF(oLIBCOMEDIT:lTmdi,oLIBCOMEDIT:oWnd,oLIBCOMEDIT:oDlg)
    LOCAL nLin:=2,nCol:=0,nAt
    LOCAL nWidth:=0 // oLIBCOMEDIT:oBrw:nWidth()
@@ -459,6 +459,8 @@ ENDIF
                        BORDER SIZE 320,20;
                        COLOR oDp:nClrYellowText,oDp:nClrYellow FONT oFont SIZE 80,20 PIXEL
 
+    lSay:=.T.
+
   ENDIF
 
   IF !Empty(oLIBCOMEDIT:cCodCli)
@@ -479,6 +481,8 @@ ENDIF
     @ nLin+27,nCol+148+24 SAY " "+SQLGET("DPCLIENTES","CLI_NOMBRE","CLI_CODIGO"+GetWhere("=",oLIBCOMEDIT:cCodCli))+" " OF oBar;
                        BORDER SIZE 320,20;
                        COLOR oDp:nClrYellowText,oDp:nClrYellow FONT oFont SIZE 80,20 PIXEL
+
+    lSay:=.T.
 
   ENDIF
 
@@ -501,6 +505,8 @@ ENDIF
     @ nLin+27,nCol+148+24+80 SAY " "+SQLGET("DPCENCOS","CEN_DESCRI","CEN_CODIGO"+GetWhere("=",oLIBCOMEDIT:cCenCos))+" " OF oBar;
                        BORDER SIZE 320,20;
                        COLOR oDp:nClrYellowText,oDp:nClrYellow FONT oFont SIZE 80,20 PIXEL
+
+    lSay:=.T.
 
   ENDIF
 
@@ -531,8 +537,23 @@ ENDIF
 
      BMPGETBTN(oLIBCOMEDIT:oCodPro)
 
+     lSay:=.T.
+
   ENDIF
 
+  IF !lSay
+
+//  DEFINE FONT oFont  NAME "Tahoma"   SIZE 0, -18 BOLD
+
+    DEFINE FONT oFont NAME "Tahoma"   SIZE 0, -28 BOLD 
+
+    nLin:=42
+    nCol:=250
+
+    @ nLin+27,nCol+001 SAY IF(oLIBCOMEDIT:lVenta," Libro de Ventas"," Libro de Compras") OF oBar;
+                       BORDER COLOR oDp:nClrYellowText,oDp:nClrYellow FONT oFont SIZE 280,34 PIXEL 
+
+  ENDIF
 
   oLIBCOMEDIT:oBar:=oBar
 
