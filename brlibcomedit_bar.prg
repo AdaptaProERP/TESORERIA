@@ -549,9 +549,18 @@ ENDIF
 
     nLin:=42
     nCol:=250
+    
+    IF oLIBCOMEDIT:lCondom
 
-    @ nLin+27,nCol+001 SAY IF(oLIBCOMEDIT:lVenta," Libro de Ventas"," Libro de Compras") OF oBar;
-                       BORDER COLOR oDp:nClrYellowText,oDp:nClrYellow FONT oFont SIZE 280,34 PIXEL 
+      @ nLin+27,nCol+001 SAY " Gastos del Condominio " OF oBar;
+                         BORDER COLOR oDp:nClrYellowText,oDp:nClrYellow FONT oFont SIZE 280+140,34 PIXEL 
+
+    ELSE
+
+      @ nLin+27,nCol+001 SAY IF(oLIBCOMEDIT:lVenta," Libro de Ventas"," Libro de Compras") OF oBar;
+                         BORDER COLOR oDp:nClrYellowText,oDp:nClrYellow FONT oFont SIZE 280,34 PIXEL 
+
+    ENDIF
 
   ENDIF
 
