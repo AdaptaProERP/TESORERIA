@@ -142,9 +142,12 @@ PROCE MAIN(cWhere,cCodSuc,nPeriodo,dDesde,dHasta,cTitle,dFchDec,lView,cCodCaj,cC
    IF lVenta
  
       // Cliente Vacio
-      EJECUTAR("CREATERECORD","DPCLIENTES",{"CLI_CODIGO","CLI_RIF"           ,"CLI_NOMBRE","CLI_RETIVA"          ,"CLI_ESTADO"},;
-                                           {SPACE(10)   ,SPACE(10)           ,SPACE(10)   ,0                     ,"Activo"    },;
-                                            NIL,.T.,"CLI_RIF"+GetWhere("=",SPACE(10)))
+      IF !ISSQLFIND("DPCLIENTES","CLI_RIF"+GetWhere("=",SPACE(10)))
+
+         EJECUTAR("CREATERECORD","DPCLIENTES",{"CLI_CODIGO","CLI_RIF"           ,"CLI_NOMBRE","CLI_RETIVA"          ,"CLI_ESTADO"},;
+                                              {SPACE(10)   ,SPACE(10)           ,SPACE(10)   ,0                     ,"Activo"    },;
+                                               NIL,.T.,"CLI_RIF"+GetWhere("=",SPACE(10)))
+      ENDIF
 
       aCodCta:=ASQL([ SELECT TDC_TIPO,CIC_CUENTA,CTA_DESCRI,TDC_CXC,TDC_CLRGRA,TDC_DESCRI,"" AS TDC_NUMDOC,TDC_LIBVTA ]+;
                     [ FROM DPTIPDOCCLI ]+;
@@ -157,6 +160,28 @@ PROCE MAIN(cWhere,cCodSuc,nPeriodo,dDesde,dHasta,cTitle,dFchDec,lView,cCodCaj,cC
                                 nCxC:=IF(a[4]="C",-1,nCxC),;
                                 aCodCta[n,4]:=nCxC        ,;
                                 aCodCta[n,7]:=EJECUTAR("DPDOCCLIGETNUM",a[1])})
+   ELSE
+
+      IF !ISSQLFIND("DPPROVEEDOR","PRO_RIF"+GetWhere("=",SPACE(10)))
+
+         EJECUTAR("CREATERECORD","DPPROVEEDOR",{"PRO_CODIGO","PRO_RIF"           ,"PRO_NOMBRE","PRO_RETIVA"          ,"PRO_ESTADO"},;
+                                               {SPACE(10)   ,SPACE(10)           ,SPACE(10)   ,0                     ,"Activo"    },;
+                                               NIL,.T.,"PRO_RIF"+GetWhere("=",SPACE(10)))
+      ENDIF
+
+      aCodCta:=ASQL([ SELECT TDC_TIPO,CIC_CUENTA,CTA_DESCRI,TDC_CXP,TDC_CLRGRA,TDC_DESCRI,"" AS TDC_NUMDOC,TDC_LIBCOM ]+;
+                    [ FROM DPTIPDOCPRO ]+;
+                    [ LEFT JOIN DPTIPDOCPRO_CTA ON CIC_CTAMOD]+GetWhere("=",oDp:cCtaMod)+[ AND CIC_CODIGO=TDC_TIPO ]+;
+                    [ LEFT JOIN DPCTA           ON CIC_CTAMOD=CTA_CODMOD AND CIC_CUENTA=CTA_CODIGO ]+;
+                    [ WHERE ]+GetWhereOr("TDC_TIPO",aTipDoc))
+
+      AEVAL(aCodCta,{|a,n,nCxP| nCxP:=0,;
+                                nCxP:=IF(a[4]="D",+1,nCxP),;
+                                nCxP:=IF(a[4]="C",-1,nCxP),;
+                                aCodCta[n,4]:=nCxP        ,;
+                                aCodCta[n,7]:=EJECUTAR("DPDOCPROGETNUM",a[1])})
+
+
 
    ENDIF
 
@@ -300,6 +325,10 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
       oLIBCOMEDIT:COL_LBC_CODCTA:=oLIBCOMEDIT:COL_LBC_CTAEGR
    ENDIF
 
+   IF !oLIBCOMEDIT:lVenta
+      oLIBCOMEDIT:COL_LBC_CXC:=oLIBCOMEDIT:COL_LBC_CXP
+   ENDIF
+
    AEVAL(aData,{|a,n|aData[n,oLIBCOMEDIT:COL_LBC_COMORG]:=ALLTRIM(SAYOPTIONS(oLIBCOMEDIT:cTable,"LBC_COMORG",a[oLIBCOMEDIT:COL_LBC_COMORG]))})
 
 
@@ -332,8 +361,6 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
                                     oCol:= oLIBCOMEDIT:oBrw:aCols[2],;
                                     FDP(nDia,oCol:cEditPicture)}
 
-// IF .T.
-
    // Campo: LBC_FECHA
    oCol:=oLIBCOMEDIT:oBrw:aCols[3]
    oCol:cHeader      :='Fecha'+CRLF+'Emisión'
@@ -343,10 +370,6 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
    oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:PUTFECHA(oCol,uValue,3,nKey)}
    oCol:nEditType    :=EDIT_GET_BUTTON
    oCol:bEditBlock   :={||EJECUTAR("BRWEDITCALENDARIO",oLIBCOMEDIT:oBrw)}
-
-//  oCol:bStrData     :={|dFecha,oCol|dFecha:=oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_FECHA],;
-//                                  IF(aLine[oLIBCOMEDIT:COL_LBC_ITEM]<>STRZERO(1,5),"",DTOC(dFecha))}
-
 
   // Campo: LBC_RIF
   oCol:=oLIBCOMEDIT:oBrw:aCols[4]
@@ -1353,18 +1376,9 @@ FUNCTION VALRIFSENIAT2()
       oDb:Execute(cSql)
 
       IF oLIBCOMEDIT:lVenta
-
-        EJECUTAR("CREATERECORD","DPCLIENTES",{"CLI_RIF" ,"CLI_NOMBRE","CLI_ESTADO"},;
-                                            {uValue    ,oDp:aRif[1] ,"Activo"    },;
-                                               NIL,.T.,"CLI_RIF"+GetWhere("=",uValue))
+        oLIBCOMEDIT:CREATECLIENTE(uValue,oDp:aRif[1],VAL(oDp:aRif[2]))
       ELSE
-
         oLIBCOMEDIT:CREATEPROVEEDOR(uValue,oDp:aRif[1],VAL(oDp:aRif[2]))
-/*
-        EJECUTAR("CREATERECORD","DPPROVEEDOR",{"PRO_RIF" ,"PRO_NOMBRE","PRO_RETIVA"      ,"PRO_ESTADO","PRO_TIPO" },;
-                                              {uValue    ,oDp:aRif[1] ,VAL(oDp:aRif[2])  ,"Activo"    ,"Proveedor"},;
-                                               NIL,.T.,"PRO_RIF"+GetWhere("=",uValue))
-*/
       ENDIF
 
       cSql:=" SET FOREIGN_KEY_CHECKS = 1"
@@ -1590,8 +1604,6 @@ FUNCTION VALRIF(oCol,uValue,nCol,nKey)
     oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,oLIBCOMEDIT:COL_CEG_DESCRI]:=cNomCta
   ENDIF
 
-? cCtaEgr,"cCtaEgr"
-
   oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_COMORG]:="Nacional"
 
   oLIBCOMEDIT:LIBSAVEFIELD(oLIBCOMEDIT:COL_LBC_COMORG)
@@ -1610,6 +1622,20 @@ FUNCTION VALRIF(oCol,uValue,nCol,nKey)
 
   oCol:oBrw:DrawLine(.T.)
 
+RETURN .T.
+
+/*
+// Crear la cuenta de Egreso, validar antes de grabar el registro
+*/
+FUNCTION CREATECTAEGRESO(cCodigo,cDescri)
+   LOCAL aLine     :=oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt]
+
+   DEFAULT cCodigo:=aLine[oLIBCOMEDIT:COL_LBC_CTAEGR],;
+           cDescri:=aLine[oLIBCOMEDIT:COL_EGR_DESCRI]
+
+   EJECUTAR("CREATERECORD","DPCTAEGRESO",{"CEG_CODIGO","CEG_DESCRI" ,"CEG_CUENTA"   ,"CEG_ACTIVO","CEG_EGRES","CEG_CODCLA"},;
+                                         {cCodigo     ,cDescri      ,oDp:cCtaIndef  ,.T.         ,.T.        ,oDp:cCtaIndef},;
+                                           NIL,.T.,"CEG_CODIGO"+GetWhere("=",cCodigo))
 RETURN .T.
 /*
 // Crear el codigo del Proveedor
@@ -1649,13 +1675,17 @@ FUNCTION VALNUMFAC(oCol,uValue,nCol,nKey)
   LOCAL dFchFin:=SQLGET(oLIBCOMEDIT:cTable,"LBC_FCHDEC,LBC_ITEM",cWhere+" AND LBC_NUMFAC"+GetWhere("=",uValue)+" AND LBC_RIF"+GetWhere("=",oLIBCOMEDIT:LBC_RIF))
   LOCAL cItem  :=DPSQLROW(2),nAt
 
-  oLIBCOMEDIT:PUTFIELDVALUE(oCol,uValue,nCol,nKey)
+  // oLIBCOMEDIT:PUTFIELDVALUE(oCol,uValue,nCol,nKey)
   nAt:=oLIBCOMEDIT:LBCGETCOLPOS("LBC_NUMFIS")
 
   IF nAt>0
     oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,nAt]:=uValue
     oCol:oBrw:nColSel:=nAt
   ENDIF
+
+  oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,nCol]:=uValue
+
+  oLIBCOMEDIT:PUTFIELDVALUE(oCol,uValue,nCol,nKey)
 
 RETURN .T.
 
@@ -1684,7 +1714,9 @@ FUNCTION PUTFECHA(oCol,uValue,nCol)
 
 RETURN .T.
 
-
+/*
+// Seleccionar tipo de Documento
+*/
 FUNCTION PUTTIPDOC(oCol,uValue,nCol)
   
   oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,nCol  ]:=uValue
@@ -1698,13 +1730,18 @@ FUNCTION PUTTIPDOC(oCol,uValue,nCol)
   ENDIF
 
   IF oLIBCOMEDIT:lVenta
+
      oLIBCOMEDIT:nCxP:=EJECUTAR("DPTIPCXC",uValue)
      oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_CXC]:=oLIBCOMEDIT:nCxP
      oLIBCOMEDIT:PUTCTATIPDOC()
      oLIBCOMEDIT:LIBSAVEFIELD(oLIBCOMEDIT:COL_LBC_CXC)
+
   ELSE
+
      oLIBCOMEDIT:nCxP:=EJECUTAR("DPTIPCXP",uValue)
      oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_CXP]:=oLIBCOMEDIT:nCxP
+     oLIBCOMEDIT:PUTCTATIPDOC()
+
   ENDIF
 
   oCol:oBrw:nColSel:=nCol+1
@@ -1753,6 +1790,11 @@ FUNCTION PUTFIELDVALUE(oCol,uValue,nCol,nKey,nLen,lNext,lTotal)
 
    IF nLen<>NIL .AND. ValType(uValue)="C"   
       uValue:=LEFT(uValue,nLen)
+   ENDIF
+
+   // si no existe , debe crearlo
+   IF !ISSQLFIND(oLIBCOMEDIT:cTable,cWhere)
+      oLIBCOMEDIT:LIBCOMGRABAR()
    ENDIF
 
    SQLUPDATE(oLIBCOMEDIT:cTable,cField,uValue,cWhere)
@@ -1880,6 +1922,11 @@ FUNCTION LIBCOMGRABAR(lAll)
    AADD(aValues,aLine[oLIBCOMEDIT:COL_LBC_REGPLA]) 
    AADD(aValues,aLine[oLIBCOMEDIT:COL_LBC_RIF   ]) // RIF=Código
 
+   IF oLIBCOMEDIT:lCtaEgr .AND. !ISSQLFIND("DPCTAEGRESO","CEG_CODIGO"+GetWhere("=",aLine[oLIBCOMEDIT:COL_LBC_CTAEGR]))
+      oLIBCOMEDIT:CREATECTAEGRESO(cCodigo,cDescri)
+   ENDIF
+
+
 
    IF COUNT(oLIBCOMEDIT:cTable,cWhere)=0 .OR. lAll
 
@@ -1972,17 +2019,9 @@ FUNCTION VALRIFNOMBRE(oCol,uValue,nCol)
 
     oLIBCOMEDIT:CREATEPROVEEDOR(cRif,uValue,oLIBCOMEDIT:LBC_PORRTI)
 
-//    EJECUTAR("CREATERECORD","DPPROVEEDOR",{"PRO_CODIGO","PRO_RIF","PRO_NOMBRE","PRO_RETIVA"        ,"PRO_ESTADO","PRO_TIPO" },;
-//                                         {cRif        ,cRif     ,uValue      ,oLIBCOMEDIT:LBC_PORRTI,"Activo"    ,"Ocasional"},;
-//             NIL,.T.,"PRO_RIF"+GetWhere("=",cRif))
   ELSE
 
     oLIBCOMEDIT:CREATECLIENTE(cRif,uValue,oLIBCOMEDIT:LBC_PORRTI)
-
-//
-//   EJECUTAR("CREATERECORD","DPCLIENTES",{"CLI_CODIGO","CLI_RIF","CLI_NOMBRE","CLI_RETIVA"          ,"CLI_ESTADO"},;
-//                                        {cRif        ,cRif     ,uValue      ,oLIBCOMEDIT:LBC_PORRTI,"Activo"    },;
-//             NIL,.T.,"CLI_RIF"+GetWhere("=",cRif))
 
   ENDIF
 
@@ -2277,9 +2316,8 @@ FUNCTION VALNOMBREEGR(oCol,uValue,nCol,nKey,NIL,lRefresh)
    oLIBCOMEDIT:oBrw:DrawLine(.T.)
    oLIBCOMEDIT:oBrw:nColSel++
 
-   EJECUTAR("CREATERECORD","DPCTAEGRESO",{"CEG_CODIGO","CEG_DESCRI" ,"CEG_CUENTA"   ,"CEG_ACTIVO","CEG_EGRES","CEG_CODCLA"},;
-                                         {cCodigo     ,uValue       ,oDp:cCtaIndef  ,.T.         ,.T.        ,oDp:cCtaIndef},;
-                                           NIL,.T.,"CEG_CODIGO"+GetWhere("=",cCodigo))
+   oLIBCOMEDIT:CREATECTAEGRESO(cCodigo,uValue)
+
    // Debe actualizar el libro de compras
    oLIBCOMEDIT:LIBSAVEFIELD(nCol-1) // Asignar la Cuenta de Egreso
 
@@ -2290,7 +2328,7 @@ RETURN .T.
 FUNCTION PUTCTATIPDOC()
    LOCAL cTipDoc:=oLIBCOMEDIT:LBCGETCOLVALUE("LBC_TIPDOC")
    LOCAL nAt    :=ASCAN(oLIBCOMEDIT:aCodCta,{|a,n|a[1]==cTipDoc}),cCodCta,cDescri
-   LOCAL nField :=oLIBCOMEDIT:LBCGETCOLPOS("LBC_CODCTA")
+   LOCAL nField :=oLIBCOMEDIT:LBCGETCOLPOS(IF(oLIBCOMEDIT:lCtaEgr,"LBC_CTAEGR","LBC_CODCTA"))
    LOCAL nCxC   :=0,nColor:=0
    LOCAL cDescriV // Descripcion venta
    LOCAL cNumero:="",cWhere,nLen:=10,cNumFis:="",cNumFac:=""
@@ -2304,7 +2342,7 @@ FUNCTION PUTCTATIPDOC()
       cDescriV:=oLIBCOMEDIT:aCodCta[nAt,6]
 
       cNumFac :=oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_NUMFAC]
-      cNumFis :=oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_NUMFIS]:=cNumFis
+      cNumFis :=oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_NUMFIS] 
 
       cWhere  :="LBC_CODSUC"+GetWhere("=",oLIBCOMEDIT:cCodSuc)+" AND "+;
                 "LBC_TIPDOC"+GetWhere("=",cTipDoc            )
@@ -2347,7 +2385,7 @@ FUNCTION PUTDIA(oCol,uValue,nCol,nKey)
     ENDIF
 
   ENDIF
-RETURN .F.
 
+RETURN .F.
 
 // EOF
