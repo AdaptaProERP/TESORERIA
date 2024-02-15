@@ -443,7 +443,7 @@ ENDIF
   IF !Empty(oLIBCOMEDIT:cCodCaj)
   
     nCol:=20
-    nLin:=20
+    nLin:=20+20
 
     oBar:SetSize(200,oBar:nHeight()+25,.T.)
 
@@ -466,7 +466,7 @@ ENDIF
   IF !Empty(oLIBCOMEDIT:cCodCli)
   
     nCol:=20
-    nLin:=20
+    nLin:=20+20
 
     oBar:SetSize(200,oBar:nHeight()+25,.T.)
 
@@ -490,19 +490,19 @@ ENDIF
   IF !Empty(oLIBCOMEDIT:cCenCos)
   
     nCol:=20
-    nLin:=20
+    nLin:=20+20+35
 
     oBar:SetSize(200,oBar:nHeight()+25,.T.)
 
-    @ nLin+27,nCol+001 SAY oDp:XDPCENCOS OF oBar;
-                       BORDER SIZE 074+80,20;
+    @ nLin+27,nCol+001 SAY oDp:XDPCENCOS+" " OF oBar;
+                       BORDER SIZE 074+80+6,20;
                        COLOR oDp:nClrLabelText,oDp:nClrLabelPane FONT oFont SIZE 80,20 PIXEL RIGHT
 
-    @ nLin+27,nCol+076+4+80 SAY " "+oLIBCOMEDIT:cCenCos+" " OF oBar;
+    @ nLin+27,nCol+076+6+80 SAY " "+oLIBCOMEDIT:cCenCos+" " OF oBar;
                          BORDER SIZE 070+20,20;
                          COLOR oDp:nClrYellowText,oDp:nClrYellow FONT oFont SIZE 80,20 PIXEL
 
-    @ nLin+27,nCol+148+24+80 SAY " "+SQLGET("DPCENCOS","CEN_DESCRI","CEN_CODIGO"+GetWhere("=",oLIBCOMEDIT:cCenCos))+" " OF oBar;
+    @ nLin+27,nCol+148+26+80 SAY " "+SQLGET("DPCENCOS","CEN_DESCRI","CEN_CODIGO"+GetWhere("=",oLIBCOMEDIT:cCenCos))+" " OF oBar;
                        BORDER SIZE 320,20;
                        COLOR oDp:nClrYellowText,oDp:nClrYellow FONT oFont SIZE 80,20 PIXEL
 
@@ -514,7 +514,7 @@ ENDIF
   IF !Empty(oLIBCOMEDIT:cNumRei)
   
     nCol:=20
-    nLin:=20
+    nLin:=20+20
 
     oBar:SetSize(200,oBar:nHeight()+25,.T.)
 

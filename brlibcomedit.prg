@@ -26,8 +26,22 @@ PROCE MAIN(cWhere,cCodSuc,nPeriodo,dDesde,dHasta,cTitle,dFchDec,lView,cCodCaj,cC
 
    DEFAULT lVenta:=.F.
 
-   aIva:=ATABLE("SELECT TIP_CODIGO FROM DPIVATIP WHERE TIP_ACTIVO=1 AND "+IF(lVenta,"TIP_VENTA","TIP_COMPRA"),"=1")
+   IF COUNT("DPIVATIP","TIP_ACTIVO=1")=0
+      SQLUPDATE("DPIVATIP",{"TIP_ACTIVO","TIP_VENTA","TIP_COMPRA"},{.T.,.T.,.T.},"TIP_CODIGO"+GetWhere("=","GN"))
+   ENDIF
 
+
+   IF lVenta
+     aIva:=ATABLE("SELECT TIP_CODIGO FROM DPIVATIP WHERE TIP_ACTIVO=1 AND TIP_VENTA=1")
+   ELSE
+     aIva:=ATABLE("SELECT TIP_CODIGO FROM DPIVATIP WHERE TIP_ACTIVO=1 AND TIP_COMPRA=1")
+   ENDIF
+
+   IF Empty(aIva)
+      MsgMemo("Necesario Activar las Alícuotas de IVA")
+      DPLBX("DPIVATIP.LBX")
+      RETURN NIL
+   ENDIF
 
    DEFAULT oDp:lCondominio:=.F.,;
            cNumRei:=""
@@ -89,6 +103,12 @@ PROCE MAIN(cWhere,cCodSuc,nPeriodo,dDesde,dHasta,cTitle,dFchDec,lView,cCodCaj,cC
 
    DEFAULT cWhere:="LBC_CODSUC"+GetWhere("=",cCodSuc)+" AND "+;
                    "LBC_FCHDEC"+GetWhere("=",dFchDec)
+
+   IF !Empty(cCenCos) .AND. !"CEN_CENCOS"$cWhere
+
+      cWhere:=cWhere+" AND LBC_CENCOS"+GetWhere("=",cCenCos)
+
+   ENDIF
 
    dFchPag:=SQLGET("DPDOCPROPROG","PLP_FECHA","PLP_TIPDOC"+GetWhere("=","F30")+" AND PLP_FCHDEC"+GetWhere("=",dFchDec))
 
@@ -258,6 +278,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
    oLIBCOMEDIT:cTable     :=IF(!lVenta,"DPLIBCOMPRASDET","DPLIBVENTASDET")
    oLIBCOMEDIT:aCodCta    :=ACLONE(aCodCta)
    oLIBCOMEDIT:cTipo      :=IF(oLIBCOMEDIT:lCondom,"Prestador de Servicios","Ocasional")
+   oLIBCOMEDIT:cReside    :="" // Reside si o no para codigo de retencion
 
    IF !oLIBCOMEDIT:lVenta
      oLIBCOMEDIT:cWherePro  :=" NOT (LEFT(PRO_RIF,1)"+GetWhere("=","G")+" OR LEFT(PRO_RIF,1)"+GetWhere("=","T")+")"
@@ -270,6 +291,11 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
 
    oLIBCOMEDIT:cItemChange:=""
    oLIBCOMEDIT:LBC_FCHDEC :=dFchDec
+   oLIBCOMEDIT:nLenRet    :=SQLGET("DPTIPDOCPRO","TDC_LEN,TDC_ZERO","TDC_TIPO"+GetWhere("=","RET"))
+   oLIBCOMEDIT:lZeroRet   :=DPSQLROW(2)
+   oLIBCOMEDIT:cNumRet    :=EJECUTAR("DPDOCCLIGETNUM","RET") 
+
+
 
    // Guarda los parámetros del Browse cuando cierra la ventana
    oLIBCOMEDIT:bValid   :={|| EJECUTAR("BRWSAVEPAR",oLIBCOMEDIT)}
@@ -293,9 +319,9 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
    oLIBCOMEDIT:nClrPane1:=16775408
    oLIBCOMEDIT:nClrPane2:=16771797
 
-   oLIBCOMEDIT:nClrText :=0
+   oLIBCOMEDIT:nClrText :=4144959
    oLIBCOMEDIT:nClrText1:=4227072
-   oLIBCOMEDIT:nClrText2:=0
+   oLIBCOMEDIT:nClrText2:=11162880
    oLIBCOMEDIT:nClrText3:=0
 
    oLIBCOMEDIT:oBrw:=TXBrowse():New( IF(oLIBCOMEDIT:lTmdi,oLIBCOMEDIT:oWnd,oLIBCOMEDIT:oDlg ))
@@ -310,11 +336,14 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
    oLIBCOMEDIT:oBrw:nFreeze     :=4+1
 
    oLIBCOMEDIT:aData            :=ACLONE(aData)
+   oLIBCOMEDIT:aFields          :=ACLONE(aFields)
+
 
    AEVAL(oLIBCOMEDIT:oBrw:aCols,{|oCol|oCol:oHeaderFont:=oFontB})
 
    // Crear nombre de las Columnas
-   AEVAL(oDp:aFields,{|a,n| oLIBCOMEDIT:SET("COL_"+a[1],n)})
+   oLIBCOMEDIT:COL_LBC_PORRTI:=0
+   AEVAL(oLIBCOMEDIT:aFields,{|a,n| oLIBCOMEDIT:SET("COL_"+a[1],n)})
 
    IF Empty(aData[1,1])
       aData[1,oLIBCOMEDIT:COL_LBC_NUMPAR]:=STRZERO(1,5)
@@ -360,6 +389,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
    oCol:bStrData      :={|nDia,oCol|nDia:= oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,2],;
                                     oCol:= oLIBCOMEDIT:oBrw:aCols[2],;
                                     FDP(nDia,oCol:cEditPicture)}
+// IF .T.
 
    // Campo: LBC_FECHA
    oCol:=oLIBCOMEDIT:oBrw:aCols[3]
@@ -410,7 +440,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
    oCol:bLClickHeader:= {|r,c,f,o| SortArray( o, oLIBCOMEDIT:oBrw:aArrayData ) } 
    oCol:nWidth       := 100
    oCol:nEditType    :=IIF( lView, 0, EDIT_GET_BUTTON)
-   oCol:bEditBlock   :={||oLIBCOMEDIT:EDITCTA(5,.F.)}
+   oCol:bEditBlock   :={||oLIBCOMEDIT:EDITCTA(6,.F.)}
    oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:VALCTA(oCol,uValue,6,nKey)}
    oCol:lButton      :=.F.
 
@@ -428,7 +458,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
    oCol:bLClickHeader:= {|r,c,f,o| SortArray( o, oLIBCOMEDIT:oBrw:aArrayData ) } 
    oCol:nWidth       := 100
    oCol:nEditType    :=IIF( lView, 0, EDIT_GET_BUTTON)
-   oCol:bEditBlock   :={||oLIBCOMEDIT:EDITCTA(5,.F.)}
+   oCol:bEditBlock   :={||oLIBCOMEDIT:EDITCTA(6,.F.)}
    oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:VALCTA(oCol,uValue,6,nKey)}
    oCol:lButton      :=.F.
 
@@ -561,38 +591,42 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
   oCol:nFootStrAlign:= AL_RIGHT 
 
  // Campo: LBC_PORRTI
-  oCol:=oLIBCOMEDIT:oBrw:aCols[oLIBCOMEDIT:COL_LBC_PORRTI]
-  oCol:cHeader      :="%"+CRLF+"RET"+CRLF+"IVA"+CRLF+"IVA"
-  oCol:bLClickHeader:= {|r,c,f,o| SortArray( o, oLIBCOMEDIT:oBrw:aArrayData ) } 
-  oCol:nWidth       := 40
-  oCol:nEditType    :=IIF( lView, 0, 1)
-  oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:VALPORRTI(oCol,uValue,oLIBCOMEDIT:COL_LBC_PORRTI,nKey)}
-  oCol:cEditPicture :='9,999,999,999,999,999.99'
+  IF oLIBCOMEDIT:COL_LBC_PORRTI>0
 
-  // Campo: LBC_MTORTI
-  oCol:=oLIBCOMEDIT:oBrw:aCols[oLIBCOMEDIT:COL_LBC_MTORTI]
-  oCol:cHeader      :='Monto'+CRLF+'Retención'+CRLF+"IVA"
-  oCol:bLClickHeader := {|r,c,f,o| SortArray( o, oLIBCOMEDIT:oBrw:aArrayData ) } 
-  oCol:nWidth       := 136
-  oCol:nDataStrAlign:= AL_RIGHT 
-  oCol:nHeadStrAlign:= AL_RIGHT 
-  oCol:nFootStrAlign:= AL_RIGHT 
-  oCol:cEditPicture :='9,999,999,999,999,999.99'
-  oCol:bStrData:={|nMonto,oCol|nMonto:= oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_MTORTI],;
+    oCol:=oLIBCOMEDIT:oBrw:aCols[oLIBCOMEDIT:COL_LBC_PORRTI]
+    oCol:cHeader      :="%"+CRLF+"RET"+CRLF+"IVA"+CRLF+"IVA"
+    oCol:bLClickHeader:= {|r,c,f,o| SortArray( o, oLIBCOMEDIT:oBrw:aArrayData ) } 
+    oCol:nWidth       := 40
+    oCol:nEditType    :=IIF( lView, 0, 1)
+    oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:VALPORRTI(oCol,uValue,oLIBCOMEDIT:COL_LBC_PORRTI,nKey)}
+    oCol:cEditPicture :='9,999,999,999,999,999.99'
+
+    // Campo: LBC_MTORTI
+    oCol:=oLIBCOMEDIT:oBrw:aCols[oLIBCOMEDIT:COL_LBC_MTORTI]
+    oCol:cHeader      :='Monto'+CRLF+'Retención'+CRLF+"IVA"
+    oCol:bLClickHeader := {|r,c,f,o| SortArray( o, oLIBCOMEDIT:oBrw:aArrayData ) } 
+    oCol:nWidth       := 136
+    oCol:nDataStrAlign:= AL_RIGHT 
+    oCol:nHeadStrAlign:= AL_RIGHT 
+    oCol:nFootStrAlign:= AL_RIGHT 
+    oCol:cEditPicture :='9,999,999,999,999,999.99'
+    oCol:bStrData:={|nMonto,oCol|nMonto:= oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_MTORTI],;
                               oCol  := oLIBCOMEDIT:oBrw:aCols[oLIBCOMEDIT:COL_LBC_MTORTI],;
                               FDP(nMonto,oCol:cEditPicture)}
-  oCol:cFooter      :=FDP(aTotal[oLIBCOMEDIT:COL_LBC_MTORTI],oCol:cEditPicture)
-  oCol:nEditType    :=IIF( lView, 0, 1)
-  oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:PUTFIELDVALUE(oCol,uValue,oLIBCOMEDIT:COL_LBC_MTORTI,nKey)}
+    oCol:cFooter      :=FDP(aTotal[oLIBCOMEDIT:COL_LBC_MTORTI],oCol:cEditPicture)
+    oCol:nEditType    :=IIF( lView, 0, 1)
+    oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:PUTFIELDVALUE(oCol,uValue,oLIBCOMEDIT:COL_LBC_MTORTI,nKey)}
 
 
-  // Campo: LBC_NUMRTI
-  oCol:=oLIBCOMEDIT:oBrw:aCols[oLIBCOMEDIT:COL_LBC_NUMRTI]
-  oCol:cHeader      :='Número'+CRLF+'Retención'+CRLF+"IVA"
-  oCol:bLClickHeader := {|r,c,f,o| SortArray( o, oLIBCOMEDIT:oBrw:aArrayData ) } 
-  oCol:nWidth       := 80
-  oCol:nEditType    :=IIF( lView, 0, 1)
-  oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:PUTFIELDVALUE(oCol,uValue,oLIBCOMEDIT:COL_LBC_NUMRTI,nKey)}
+    // Campo: LBC_NUMRTI
+    oCol:=oLIBCOMEDIT:oBrw:aCols[oLIBCOMEDIT:COL_LBC_NUMRTI]
+    oCol:cHeader      :='Número'+CRLF+'Retención'+CRLF+"IVA"
+    oCol:bLClickHeader := {|r,c,f,o| SortArray( o, oLIBCOMEDIT:oBrw:aArrayData ) } 
+    oCol:nWidth       := 80
+    oCol:nEditType    :=IIF( lView, 0, 1)
+    oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:PUTFIELDVALUE(oCol,uValue,oLIBCOMEDIT:COL_LBC_NUMRTI,nKey)}
+
+  ENDIF
 
   // Campo: LBC_CONISR
   oCol:=oLIBCOMEDIT:oBrw:aCols[oLIBCOMEDIT:COL_LBC_CONISR]
@@ -601,6 +635,11 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
   oCol:nWidth       := 80
   oCol:nEditType    :=IIF( lView, 0, 1)
   oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:PUTFIELDVALUE(oCol,uValue,oLIBCOMEDIT:COL_LBC_CONISR,nKey)}
+  oCol:nEditType    :=IIF( lView, 0, EDIT_GET_BUTTON)
+  oCol:bEditBlock   :={||oLIBCOMEDIT:EDITCONISLR(oLIBCOMEDIT:COL_LBC_CONISR,.F.)}
+  oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:VALCONISLR(oCol,uValue,oLIBCOMEDIT:COL_LBC_CONISR,nKey)}
+  oCol:lButton      :=.F.
+
 
  // Campo: LBC_PORISR
   oCol:=oLIBCOMEDIT:oBrw:aCols[oLIBCOMEDIT:COL_LBC_PORISR]
@@ -610,6 +649,8 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
   oCol:nEditType    :=IIF( lView, 0, 1)
   oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:VALPORISR(oCol,uValue,oLIBCOMEDIT:COL_LBC_PORISR,nKey)}
   oCol:cEditPicture :='9,999,999,999,999,999.99'
+
+// ? oLIBCOMEDIT:COL_LBC_PORISR,"oLIBCOMEDIT:COL_LBC_PORISR"
 
   // Campo: LBC_MTOISR
   oCol:=oLIBCOMEDIT:oBrw:aCols[oLIBCOMEDIT:COL_LBC_MTOISR]
@@ -626,6 +667,16 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
   oCol:cFooter      :=FDP(aTotal[oLIBCOMEDIT:COL_LBC_MTOISR],oCol:cEditPicture)
   oCol:nEditType    :=IIF( lView, 0, 1)
   oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:PUTFIELDVALUE(oCol,uValue,oLIBCOMEDIT:COL_LBC_MTOISR,nKey)}
+
+
+  // Campo: LBC_NUMISR
+  oCol:=oLIBCOMEDIT:oBrw:aCols[oLIBCOMEDIT:COL_LBC_NUMISR]
+  oCol:cHeader      :='Número'+CRLF+'Retención'+CRLF+"ISLR"
+  oCol:bLClickHeader := {|r,c,f,o| SortArray( o, oLIBCOMEDIT:oBrw:aArrayData ) } 
+  oCol:nWidth       := 80
+  oCol:nEditType    :=IIF( lView, 0, 1)
+  oCol:bOnPostEdit  :={|oCol,uValue,nKey|oLIBCOMEDIT:VALNUMISR(oCol,uValue,oLIBCOMEDIT:COL_LBC_NUMRTI,nKey)}
+
 
   // Campo: LBC_COMORG
   oCol:=oLIBCOMEDIT:oBrw:aCols[oLIBCOMEDIT:COL_LBC_COMORG]
@@ -757,8 +808,10 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
   oLIBCOMEDIT:oBrw:bClrStd  := {|oBrw,nClrText,aLine|oBrw:=oLIBCOMEDIT:oBrw,aLine:=oBrw:aArrayData[oBrw:nArrayAt],;
                                                  nClrText:=oLIBCOMEDIT:nClrText,;
                                                  nClrText:=IF(aLine[oLIBCOMEDIT:COL_LBC_ITEM]<>STRZERO(1,5),oLIBCOMEDIT:nClrText1,nClrText),;
-                                                 nClrText:=IF(.F.,oLIBCOMEDIT:nClrText2,nClrText),;
+                                                 nClrText:=IF(aLine[oLIBCOMEDIT:COL_LBC_REGDOC],oLIBCOMEDIT:nClrText2,nClrText),;
                                                  {nClrText,iif( oBrw:nArrayAt%2=0, oLIBCOMEDIT:nClrPane1, oLIBCOMEDIT:nClrPane2 ) } }
+
+// ENDIF
 
   oLIBCOMEDIT:oBrw:bClrHeader          := {|| { oDp:nLbxClrHeaderText, oDp:nLbxClrHeaderPane}}
   oLIBCOMEDIT:oBrw:bClrFooter          := {|| { oDp:nLbxClrHeaderText, oDp:nLbxClrHeaderPane}}
@@ -767,7 +820,10 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
 
   oLIBCOMEDIT:oBrw:bChange:={||oLIBCOMEDIT:BRWCHANGE()}
 
-  AEVAL(oLIBCOMEDIT:oBrw:aCols,{|oCol,n| oCol:cHeader:=oCol:cHeader+CRLF+LSTR(n)})
+  IF ISPCPRG()
+     AEVAL(oLIBCOMEDIT:oBrw:aCols,{|oCol,n| oCol:cHeader:=oCol:cHeader+CRLF+LSTR(n)})
+  ENDIF
+
   oLIBCOMEDIT:oBrw:CreateFromCode()
   oLIBCOMEDIT:oWnd:oClient := oLIBCOMEDIT:oBrw
 
@@ -777,17 +833,16 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
 
   oLIBCOMEDIT:aFieldItemF:={"LBC_CODCTA","LBC_DESCRI","LBC_MTOBAS","LBC_TIPIVA","LBC_PORIVA","LBC_MTOIVA","LBC_MTONET"}
 
-  // Posición de los campos que seran Editados en ITEM ADICIONAL
-  oLIBCOMEDIT:aFieldItemP:={}
-  AEVAL(oLIBCOMEDIT:aFieldItemF,{|a,n| AADD(oLIBCOMEDIT:aFieldItemP,oLIBCOMEDIT:LBCGETCOLPOS(a))})
-
-  AEVAL(oLIBCOMEDIT:oBrw:aCols,{|oCol,n| AADD(oLIBCOMEDIT:aEditType,oCol:nEditType)})
-
+// Posición de los campos que seran Editados en ITEM ADICIONAL
+   oLIBCOMEDIT:aFieldItemP:={}
+// AEVAL(oLIBCOMEDIT:aFieldItemF,{|a,n| AADD(oLIBCOMEDIT:aFieldItemP,oLIBCOMEDIT:LBCGETCOLPOS(a))})
+// AEVAL(oLIBCOMEDIT:oBrw:aCols,{|oCol,n| AADD(oLIBCOMEDIT:aEditType,oCol:nEditType)})
 
   oLIBCOMEDIT:Activate({||oLIBCOMEDIT:ViewDatBar()})
 
   oLIBCOMEDIT:BRWRESTOREPAR()
 
+  oLIBCOMEDIT:oBrw:GoBottom() 
   oLIBCOMEDIT:SETEDITTYPE(.T.)
 
 RETURN .T.
@@ -896,6 +951,7 @@ FUNCTION LEERDATA(cWhere,oBrw,cServer,oLIBEDIT,lCondom,lCtaEgr,lVenta)
    LOCAL oDb,nLenLin
    LOCAL nAt,nRowSel,cJoinCta,cJoinCli,cCtaNombre,cSqlPla,aDataPla:={},aLine:={},nAt,aNew:={}
    LOCAL cJoinTip:=" INNER JOIN DPTIPDOCPRO ON LBC_TIPDOC=TDC_TIPO" 
+   LOCAL LBC_REGDOC:=0
 
    DEFAULT cWhere:=""
 
@@ -951,6 +1007,7 @@ FUNCTION LEERDATA(cWhere,oBrw,cServer,oLIBEDIT,lCondom,lCtaEgr,lVenta)
           " LBC_CONISR,"+;
           " LBC_PORISR,"+;
           " LBC_MTOISR,"+;
+          " LBC_NUMISR,"+;
           " LBC_VALCAM,"+;
           " LBC_USOCON,"+;
           " LBC_COMORG,"+;
@@ -966,7 +1023,8 @@ FUNCTION LEERDATA(cWhere,oBrw,cServer,oLIBEDIT,lCondom,lCtaEgr,lVenta)
           " INNER JOIN DPPROVEEDOR  ON LBC_RIF=PRO_RIF"+;
           " "+cJoinCta+;
           " "+cJoinTip+;
-          " ORDER BY CONCAT(LBC_NUMPAR,LBC_ITEM) "+;
+          " GROUP BY CONCAT(LBC_NUMPAR,LBC_ITEM) "+;
+          " ORDER BY LBC_FECHA "
           ""
 
    IF lVenta
@@ -977,6 +1035,15 @@ FUNCTION LEERDATA(cWhere,oBrw,cServer,oLIBEDIT,lCondom,lCtaEgr,lVenta)
      cSql:=STRTRAN(cSql,"PRO_RIF"        ,"CLI_RIF")
      cSql:=STRTRAN(cSql,"PRO_NOMBRE"     ,"CLI_NOMBRE")
      cSql:=STRTRAN(cSql,"DPTIPDOCPRO"    ,"DPTIPDOCCLI")
+   ELSE
+
+     IF LEFT(oDp:cTipCon,1)="O"
+        cSql:=STRTRAN(cSql," LBC_PORRTI,","")
+        cSql:=STRTRAN(cSql," LBC_MTORTI,","")
+        cSql:=STRTRAN(cSql," LBC_NUMRTI,","")
+     ENDIF
+
+// ? CLPCOPY(cSql)
 
    ENDIF
 
@@ -991,8 +1058,12 @@ FUNCTION LEERDATA(cWhere,oBrw,cServer,oLIBEDIT,lCondom,lCtaEgr,lVenta)
    DPWRITE("TEMP\BRLIBCOMEDIT.SQL",cSql)
 
    oTable     :=OpenTable(cSql,.T.)
+
+   LBC_REGDOC:=oTable:FieldPos("LBC_REGDOC")
+
    aData      :=ACLONE(oTable:aDataFill)
    oDp:aFields:=ACLONE(oTable:aFields)
+   oTable:End(.T.)
 
    oDp:cWhere:=cWhere
 
@@ -1004,6 +1075,7 @@ FUNCTION LEERDATA(cWhere,oBrw,cServer,oLIBEDIT,lCondom,lCtaEgr,lVenta)
    // ? lCtaEgr,lCondom,"lCtaEgr,lCondom"
 
    IF lCtaEgr .AND. lCondom
+/*
 
      // Debemos excluir las planificaciones (proveedor y referencia) 
      aLine  :=ACLONE(aData[1])
@@ -1027,6 +1099,7 @@ FUNCTION LEERDATA(cWhere,oBrw,cServer,oLIBEDIT,lCondom,lCtaEgr,lVenta)
 
       oTable:=OpenTable(cSqlPla,.T.)
 
+//? CLPCOPY(oDp:cSql)
 // oTable:Browse()
 
       WHILE !oTable:Eof()
@@ -1073,10 +1146,13 @@ FUNCTION LEERDATA(cWhere,oBrw,cServer,oLIBEDIT,lCondom,lCtaEgr,lVenta)
 
   
       oTable:End(.T.)
-
+*/
    ENDIF
 
-   AEVAL(aData,{|a,n| aData[n,24+2]:=(a[24+2]=1)})
+// ? LBC_REGDOC,"LBC_REGDOC"
+
+   AEVAL(aData,{|a,n| aData[n,LBC_REGDOC]:=(a[LBC_REGDOC]=1)})
+
 // nLenLin:=LEN(aData[1])
 // IF Empty(aData[1,nLenLin])
 //    aData[1,nLenLin]:=STRZERO(1,5)
@@ -1313,22 +1389,26 @@ FUNCTION EDITRIF(nCol,lSave)
 
       IF !oLIBCOMEDIT:lVenta
 
-        cWhere:="PRO_RIF"+GetWhere(" LIKE ","%"+ALLTRIM(aLine[nCol])+"%")
-         
+        cWhere:="PRO_RIF"   +GetWhere(" LIKE ","%"+ALLTRIM(aLine[nCol])+"%")+" OR "+;
+                "PRO_NOMBRE"+GetWhere(" LIKE ","%"+ALLTRIM(aLine[nCol])+"%")
+
         // no hay RIF con estos datos y proceso a Incluirlo
         IF COUNT("DPPROVEEDOR",cWhere)=0
-          oBrw:nColSel:=oLIBCOMEDIT:LBCGETCOLPOS("PRO_NOMBRE")
-          RETURN .T.
+          cWhere:=""
+        // oBrw:nColSel:=oLIBCOMEDIT:LBCGETCOLPOS("PRO_NOMBRE")
+        // RETURN .T.
         ENDIF
 
       ELSE
 
-        cWhere:="CLI_RIF"+GetWhere(" LIKE ","%"+ALLTRIM(aLine[nCol])+"%")
+        cWhere:="CLI_RIF"+GetWhere(" LIKE ","%"+ALLTRIM(aLine[nCol])+"%")+" OR "+;
+                "CLI_NOMBRE"+GetWhere(" LIKE ","%"+ALLTRIM(aLine[nCol])+"%")
          
         // no hay RIF con estos datos y proceso a Incluirlo
         IF COUNT("DPCLIENTES",cWhere)=0
-          oBrw:nColSel:=oLIBCOMEDIT:LBCGETCOLPOS("CLI_NOMBRE")
-          RETURN .T.
+          cWhere:=""
+//        oBrw:nColSel:=oLIBCOMEDIT:LBCGETCOLPOS("CLI_NOMBRE")
+//        RETURN .T.
         ENDIF
 
       ENDIF
@@ -1341,10 +1421,10 @@ FUNCTION EDITRIF(nCol,lSave)
    ENDIF
 
    IF !oLIBCOMEDIT:lVenta
-     oLbx:=DpLbx("DPPROVEEDOR_RIF.LBX",NIL,oLIBCOMEDIT:cWherePro+IF(Empty(cWhere),""," AND "+cWhere))
+     oLbx:=DpLbx("DPPROVEEDOR_RIF.LBX",cWhere,oLIBCOMEDIT:cWherePro+IF(Empty(cWhere),""," AND "+cWhere))
      oLbx:GetValue("PRO_RIF",oBrw:aCols[nCol],,,uValue)
    ELSE
-     oLbx:=DpLbx("DPCLIENTES_RIF.LBX",NIL,oLIBCOMEDIT:cWherePro+IF(Empty(cWhere),""," AND "+cWhere))
+     oLbx:=DpLbx("DPCLIENTES_RIF.LBX",cWhere,oLIBCOMEDIT:cWherePro+IF(Empty(cWhere),""," AND "+cWhere))
      oLbx:GetValue("CLI_RIF",oBrw:aCols[nCol],,,uValue)
    ENDIF
 
@@ -1393,236 +1473,7 @@ FUNCTION VALRIFSENIAT2()
 RETURN .T.
 
 FUNCTION VALRIF(oCol,uValue,nCol,nKey)
-  LOCAL oTable,cCtaOld:="",cDescri,cWhere,lOk:=.F.
-  LOCAL oRif,cCtaEgr,cCodCta:="",cNomCta:="",nPorIva,cTipIva,nPorRti,cCodigo,cRif,cCodCli,cNombre:=""
-  LOCAL aLine     :=oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt]
-  LOCAL cRifAnt   :=aLine[nCol]
-  LOCAL cWhere    :=oLIBCOMEDIT:LIBWHERE()
-  LOCAL nColPorRti:=oLIBCOMEDIT:LBCGETCOLPOS("LBC_PORRTI")
-  LOCAL nColTipIva:=oLIBCOMEDIT:LBCGETCOLPOS("LBC_TIPIVA")
-  LOCAL nColDescri:=oLIBCOMEDIT:LBCGETCOLPOS("LBC_DESCRI")
-  LOCAL nColCtaEgr:=oLIBCOMEDIT:LBCGETCOLPOS("LBC_CTAEGR")
-  LOCAL nColCodCta:=0
-  LOCAL cTipDoc   :=oLIBCOMEDIT:LBCGETCOLVALUE("LBC_TIPDOC")
- 
-  DEFAULT nKey:=0
-
-  DEFAULT oCol:lButton:=.F.
-
-  IF oCol:lButton=.T.
-     oCol:lButton:=.F.
-     RETURN .T.
-  ENDIF
-
-  IF !Empty(cRifAnt) .AND. cRifAnt<>uValue
-
-   // Cambia el Codigo del Cliente/Provedor
-   IF oLIBCOMEDIT:lVenta
-      SQLUPDATE("DPCLIENTES" ,{"CLI_RIF","CLI_CODIGO"},{uValue,uValue},"CLI_RIF"+GetWhere("=",cRifAnt))
-   ELSE
-      SQLUPDATE("DPPROVEEDOR",{"PRO_RIF","PRO_CODIGO"},{uValue,uValue},"PRO_RIF"+GetWhere("=",cRifAnt))
-   ENDIF
-
-  ENDIF
-
-  IF !oLIBCOMEDIT:lVenta .AND. !ISSQLFIND("DPPROVEEDOR","PRO_RIF"+GetWhere("=",uValue))
-
-    cRif:=EJECUTAR("FINDCODENAME","DPPROVEEDOR","PRO_RIF","PRO_NOMBRE",oCol,NIL,uValue)
-
-    IF !Empty(cRif)
-       uValue:=cRif
-    ENDIF
-    
-  ENDIF
-
-  IF oLIBCOMEDIT:lVenta .AND. !ISSQLFIND("DPCLIENTES","CLI_RIF"+GetWhere("=",uValue))
-
-    cRif:=EJECUTAR("FINDCODENAME","DPCLIENTES","CLI_RIF","CLI_NOMBRE",oCol,NIL,uValue)
-
-    IF !Empty(cRif)
-       uValue:=cRif
-    ENDIF
-
-  ENDIF
-
-  IF !oLIBCOMEDIT:lVenta
-    cNombre:=SQLGET("DPPROVEEDOR","PRO_NOMBRE,PRO_RETIVA,PRO_CODIGO","PRO_RIF"+GetWhere("=",uValue))
-    nPorIva:=DPSQLROW(2)
-  ELSE
-    cNombre:=SQLGET("DPCLIENTES","CLI_NOMBRE,CLI_RETIVA,CLI_CODIGO","CLI_RIF"+GetWhere("=",uValue))
-    nPorIva:=DPSQLROW(2)
-  ENDIF
-
-  oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,nCol+1]:=cNombre
-  oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,nCol  ]:=uValue
-
-  IF !oLIBCOMEDIT:lVenta .AND. !ISSQLFIND("DPPROVEEDOR","PRO_RIF"+GetWhere("=",uValue))
-
-    oDp:aRif:={}
-
-    IF LEN(uValue)>=10 .AND. oDp:lAutRif
-      lOk:=EJECUTAR("VALRIFSENIAT",uValue,!ISDIGIT(uValue),ISDIGIT(uValue)) 
-    ENDIF
-
-    IF lOk .AND. LEN(oDp:aRif)>1 .AND. !("NO ENCON"$oDp:aRif[1] .OR. "NO EXIS"$UPPER(oDp:aRif[1]))
-
-       cCodigo:=uValue
-
-       oLIBCOMEDIT:CREATEPROVEEDOR(uValue,oDp:aRif[1] ,VAL(oDp:aRif[2]))
-
-   ELSE
-
-      // 31/01/2024 NO debe llamar LBX debe permitir agregar cliente EVAL(oCol:bEditBlock)  
-
-      IF Empty(cRifAnt) .AND. Empty(cNombre)
-         oCol:oBrw:nColSel:=oLIBCOMEDIT:COL_LBC_RIF+1
-         RETURN .T.
-      ENDIF
-
-    ENDIF
-
-  ENDIF
-
-  IF oLIBCOMEDIT:lVenta .AND. !ISSQLFIND("DPCLIENTES","CLI_RIF"+GetWhere("=",uValue))
-
-    oDp:aRif:={}
-
-    IF LEN(uValue)>=10 .AND. oDp:lAutRif
-      lOk:=EJECUTAR("VALRIFSENIAT",uValue,!ISDIGIT(uValue),ISDIGIT(uValue)) 
-    ENDIF
-
-    IF lOk .AND. LEN(oDp:aRif)>1 .AND. !("NO ENCON"$oDp:aRif[1] .OR. "NO EXIS"$UPPER(oDp:aRif[1]))
-
-       cCodigo:=uValue
-
-       oLIBCOMEDIT:CREATECLIENTE(uValue,oDp:aRif[1],VAL(oDp:aRif[2]))
-
-   ELSE
-
-      // 31/01/2024 NO debe llamar LBX debe permitir agregar cliente EVAL(oCol:bEditBlock)  
-      // EVAL(oCol:bEditBlock)  
-
-      IF Empty(cRifAnt) .AND. Empty(cNombre)
-         oCol:oBrw:nColSel:=oLIBCOMEDIT:COL_LBC_RIF+1
-         RETURN .T.
-      ENDIF
-
-    ENDIF
-
- ENDIF
- 
- IF !oLIBCOMEDIT:lCtaEgr 
-    cCodCta:=oLIBCOMEDIT:LBCGETCOLVALUE("LBC_CODCTA")
- ELSE
-    cCtaEgr:=oLIBCOMEDIT:LBCGETCOLVALUE("LBC_CTAEGR")
- ENDIF
- 
- IF Empty(cCodCta) .AND. !oLIBCOMEDIT:lCtaEgr 
-
-   cCodCta:=SQLGET(oLIBCOMEDIT:cTable,"LBC_CTACOD,LBC_TIPIVA,LBC_PORRTI,LBC_DESCRI","LBC_TIPDOC"+GetWhere("=",cTipDoc)+" AND "+;
-                                      "LBC_RIF"+GetWhere("=",uValue)+" AND LBC_CTACOD"+GetWhere("<>","")+" ORDER BY LBC_FECHA DESC LIMIT 1 ")
-
-   IF Empty(cCodCta)
-      cCodCta:=SQLGET(oLIBCOMEDIT:cTable,"LBC_CTACOD,LBC_TIPIVA,LBC_PORRTI,LBC_DESCRI","LBC_RIF"+GetWhere("=",uValue)+" AND LBC_CTACOD"+GetWhere("<>","")+" ORDER BY LBC_FECHA DESC LIMIT 1 ")
-   ENDIF
-
-   nColCodCta:=oLIBCOMEDIT:LBCGETCOLPOS("LBC_CODCTA")
-   cCodCta   :=SQLGET(oLIBCOMEDIT:cTable,"LBC_CODCTA,LBC_TIPIVA,LBC_PORRTI,LBC_DESCRI","LBC_RIF"+GetWhere("=",uValue)+" AND LBC_CODCTA"+GetWhere("<>","")+" ORDER BY LBC_FECHA DESC LIMIT 1 ")
-   cTipIva   :=DPSQLROW(2)
-   nPorRti   :=DPSQLROW(3)
-   cDescri   :=PADR(DPSQLROW(4),140)
-
-   oLIBCOMEDIT:LIBSAVEFIELD(oLIBCOMEDIT:COL_LBC_COMORG)
-
-   oLIBCOMEDIT:oBrw:aArrayData[oCol:oBrw:nArrayAt,nColCodCta]:=cCodCta
-   oLIBCOMEDIT:oBrw:aArrayData[oCol:oBrw:nArrayAt,nColTipIva]:=cTipIva
-   oLIBCOMEDIT:oBrw:aArrayData[oCol:oBrw:nArrayAt,nColPorRti]:=nPorRti
-   oLIBCOMEDIT:oBrw:aArrayData[oCol:oBrw:nArrayAt,nColDescri]:=cDescri
-
-   cNomCta:=SQLGET("DPCTA","CTA_DESCRI","CTA_CODMOD"+GetWhere("=",oDp:cCtaMod)+" AND CTA_CODIGO"+GetWhere("=",cCodCta))
-
-   IF !Empty(cCodCta)
-     SQLUPDATE(oLIBCOMEDIT:cTable,"LBC_CODCTA",cCodCta,cWhere)
-   ENDIF
-
- ENDIF
-
- IF Empty(cCtaEgr) .AND. oLIBCOMEDIT:lCtaEgr 
-
-   cCtaEgr:=SQLGET(oLIBCOMEDIT:cTable,"LBC_CTAEGR,LBC_TIPIVA,LBC_PORRTI,LBC_DESCRI","LBC_TIPDOC"+GetWhere("=",cTipDoc)+" AND "+;
-                                      "LBC_RIF"+GetWhere("=",uValue)+" AND LBC_CTAEGR"+GetWhere("<>","")+" ORDER BY LBC_FECHA DESC LIMIT 1 ")
-
-   IF Empty(cCtaEgr)
-      cCtaEgr:=SQLGET(oLIBCOMEDIT:cTable,"LBC_CTAEGR,LBC_TIPIVA,LBC_PORRTI,LBC_DESCRI","LBC_RIF"+GetWhere("=",uValue)+" AND LBC_CTAEGR"+GetWhere("<>","")+" ORDER BY LBC_FECHA DESC LIMIT 1 ")
-   ENDIF
-
-   cTipIva:=DPSQLROW(2)
-   nPorRti:=DPSQLROW(3)
-   cDescri:=PADR(DPSQLROW(4),140)
-
-   oLIBCOMEDIT:oBrw:aArrayData[oCol:oBrw:nArrayAt,nColCtaEgr]:=cCtaEgr
-   oLIBCOMEDIT:oBrw:aArrayData[oCol:oBrw:nArrayAt,nColTipIva]:=cTipIva
-   oLIBCOMEDIT:oBrw:aArrayData[oCol:oBrw:nArrayAt,nColPorRti]:=nPorRti
-   oLIBCOMEDIT:oBrw:aArrayData[oCol:oBrw:nArrayAt,nColDescri]:=cDescri
-
-   oLIBCOMEDIT:LIBSAVEFIELD(oLIBCOMEDIT:COL_LBC_CTAEGR)
-
-   cNomCta:=SQLGET("DPCTAEGRESO","CEG_DESCRI","CEG_CODIGO"+GetWhere("=",cCtaEgr))
-
-   IF !Empty(cCodCta)
-     SQLUPDATE(oLIBCOMEDIT:cTable,"LBC_CTAEGR",cCtaEgr,cWhere)
-   ENDIF
-
-  ENDIF
-
-	
-  IF !oLIBCOMEDIT:lVenta
-    cNombre:=SQLGET("DPPROVEEDOR","PRO_NOMBRE,PRO_RETIVA,PRO_CODIGO","PRO_RIF"+GetWhere("=",uValue))
-    nPorIva:=DPSQLROW(2)
-  ELSE
-    cNombre:=SQLGET("DPCLIENTES","CLI_NOMBRE,CLI_RETIVA,CLI_CODIGO","CLI_RIF"+GetWhere("=",uValue))
-    nPorIva:=DPSQLROW(2)
-  ENDIF
-
-  cCodigo    :=DPSQLROW(3)
-  oLIBCOMEDIT:cRif    := oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,nCol]
-  oLIBCOMEDIT:lAcction:=.F.
-
-  SQLUPDATE(oLIBCOMEDIT:cTable,"LBC_CODIGO",cCodCli,oLIBCOMEDIT:LIBWHERE())
-
-  oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,nCol  ]:=uValue
-  oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,nCol+1]:=cNombre
-
-  oLIBCOMEDIT:LIBSAVEFIELD(nCol)
-
-  // Cuenta Contable
-  IF !oLIBCOMEDIT:lCtaEgr
-    oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_CODCTA]:=cCodCta
-    oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,oLIBCOMEDIT:COL_CTA_DESCRI]:=cNomCta
-  ELSE
-    oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_CTAEGR]:=cCtaEgr
-    oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,oLIBCOMEDIT:COL_CEG_DESCRI]:=cNomCta
-  ENDIF
-
-  oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_COMORG]:="Nacional"
-
-  oLIBCOMEDIT:LIBSAVEFIELD(oLIBCOMEDIT:COL_LBC_COMORG)
-
-  oLIBCOMEDIT:LIBCOMGRABAR(.T.) // guardar todo el registro
-
-  // IF Empty(cDescri)
-  //   oCol:oBrw:nColSel:=nCol+1
-  // ENDIF
-
-  IF !Empty(cCodCta)
-    oCol:oBrw:nColSel:=oLIBCOMEDIT:COL_LBC_DESCRI
-  ELSE
-    oCol:oBrw:nColSel:=oLIBCOMEDIT:COL_LBC_CODCTA
-  ENDIF
-
-  oCol:oBrw:DrawLine(.T.)
-
-RETURN .T.
+RETURN EJECUTAR("LIBCOMVALRIF",oCol,uValue,nCol,nKey,oLIBCOMEDIT)
 
 /*
 // Crear la cuenta de Egreso, validar antes de grabar el registro
@@ -1657,7 +1508,7 @@ FUNCTION CREATECLIENTE(cRif,cNombre,nRetIva)
 
    DEFAULT nRetIva:=0
 
-   EJECUTAR("CREATERECORD","DPCLIENTES",{"CLI_CODIGO","CLI_RIF" ,"CLI_NOMBRE","CLI_RETIVA","PRO_ACTIVO" },;
+   EJECUTAR("CREATERECORD","DPCLIENTES",{"CLI_CODIGO","CLI_RIF" ,"CLI_NOMBRE","CLI_RETIVA","CLI_ESTADO" },;
                                         {cRif        ,cRif      ,cNombre     ,nRetIva     ,"Activo"     },;
             NIL,.T.,"CLI_RIF"+GetWhere("=",cRif))
 
@@ -1866,6 +1717,7 @@ FUNCTION LIBSAVEFIELD(nCol)
 RETURN .T.
 
 FUNCTION LIBWHERE()
+   LOCAL x       :=oLIBCOMEDIT:BUILDITEM()
    LOCAL aLine   :=oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt]
    LOCAL nColItem:=oLIBCOMEDIT:LBCGETCOLPOS("LBC_ITEM")
    LOCAL nColNumP:=oLIBCOMEDIT:LBCGETCOLPOS("LBC_NUMPAR")
@@ -1873,8 +1725,22 @@ FUNCTION LIBWHERE()
                    "LBC_FCHDEC"+GetWhere("=",oLIBCOMEDIT:dFchDec)+" AND "+;
                    "LBC_NUMPAR"+GetWhere("=",aLine[nColNumP]    )+" AND "+;
                    "LBC_ITEM"  +GetWhere("=",aLine[nColItem]    )
+
   
 RETURN cWhere
+
+FUNCTION BUILDITEM()
+   LOCAL cMax:="",lZero:=.T.,nLen:=5
+   LOCAL aLine   :=oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt]
+   LOCAL nColItem:=oLIBCOMEDIT:LBCGETCOLPOS("LBC_ITEM")
+   LOCAL nColNumP:=oLIBCOMEDIT:LBCGETCOLPOS("LBC_NUMPAR")
+   LOCAL cItem
+
+   IF Empty(aLine[nColNumP])
+      cItem:=SQLINCREMENTAL(oLIBCOMEDIT:cTable,"LBC_NUMPAR",oLIBCOMEDIT:cWhere,NIL,cMax,lZero,nLen)
+   ENDIF
+
+RETURN .T.
 
 
 FUNCTION LIBCOMGRABAR(lAll)
@@ -1914,6 +1780,7 @@ FUNCTION LIBCOMGRABAR(lAll)
    AADD(aFields,IF(oLIBCOMEDIT:lVenta,"LBC_CXC","LBC_CXP"))
    AADD(aFields,"LBC_REGPLA")
    AADD(aFields,"LBC_CODIGO")
+   AADD(aFields,"LBC_CENCOS")
 
    AADD(aValues,oDp:cCtaMod)
    AADD(aValues,oLIBCOMEDIT:dFchDec)
@@ -1921,12 +1788,11 @@ FUNCTION LIBCOMGRABAR(lAll)
    AADD(aValues,nCxP) 
    AADD(aValues,aLine[oLIBCOMEDIT:COL_LBC_REGPLA]) 
    AADD(aValues,aLine[oLIBCOMEDIT:COL_LBC_RIF   ]) // RIF=Código
+   AADD(aValues,IF(Empty(oLIBCOMEDIT:cCenCos),oDp:cCenCos,oLIBCOMEDIT:cCenCos))
 
    IF oLIBCOMEDIT:lCtaEgr .AND. !ISSQLFIND("DPCTAEGRESO","CEG_CODIGO"+GetWhere("=",aLine[oLIBCOMEDIT:COL_LBC_CTAEGR]))
       oLIBCOMEDIT:CREATECTAEGRESO(cCodigo,cDescri)
    ENDIF
-
-
 
    IF COUNT(oLIBCOMEDIT:cTable,cWhere)=0 .OR. lAll
 
@@ -1998,7 +1864,11 @@ RETURN .T.
 */
 FUNCTION LIBCOMSAVE()
 
-   EJECUTAR("DPLIBCOMTODPDOCPRO",oLIBCOMEDIT:cCodSuc,oLIBCOMEDIT:dFchDec)
+   IF !oLIBCOMEDIT:lVenta
+      EJECUTAR("DPLIBCOMTODPDOCPRO",oLIBCOMEDIT:cCodSuc,oLIBCOMEDIT:dFchDec)
+   ELSE
+      EJECUTAR("DPLIBVTATODPDOCCLI",oLIBCOMEDIT:cCodSuc,oLIBCOMEDIT:dFchDec)
+   ENDIF
 
    IF ValType(oLIBCOMEDIT:oFrmRefresh)="O"
       oLIBCOMEDIT:oFrmRefresh:BRWREFRESCAR()
@@ -2056,7 +1926,9 @@ FUNCTION PUTTIPIVA(oCol,cTipIva,nCol)
    oLIBCOMEDIT:LIBSAVEFIELD(oLIBCOMEDIT:COL_LBC_MTOIVA)
    oLIBCOMEDIT:LIBSAVEFIELD(oLIBCOMEDIT:COL_LBC_MTONET)
 
-   oLIBCOMEDIT:VALPORRTI(oColPorRti,nPorRti,oLIBCOMEDIT:COL_LBC_PORRTI,NIL)
+   IF oLIBCOMEDIT:COL_LBC_PORRTI>0
+      oLIBCOMEDIT:VALPORRTI(oColPorRti,nPorRti,oLIBCOMEDIT:COL_LBC_PORRTI,NIL)
+   ENDIF
 
 RETURN .T.
 
@@ -2080,14 +1952,22 @@ RETURN .T.
 /*
 // Valida % RETENCION DE ISLR
 */
-FUNCTION VALPORISR(oCol,uValue,oLIBCOMEDIT:COL_LBC_PORISR,nKey)
+FUNCTION VALPORISR(oCol,uValue,nCol,nKey)
    LOCAL nMtoBas:=oLIBCOMEDIT:LBCGETCOLVALUE("LBC_MTOBAS")
-   LOCAL nMtoIsr:=PORCEN(nMtoBas,uValue)
+   LOCAL dFecha :=oLIBCOMEDIT:LBCGETCOLVALUE("LBC_FECHA")
+   LOCAL cCodCon:=oLIBCOMEDIT:LBCGETCOLVALUE("LBC_CONISR")
+   LOCAL nMtoIsr:=0 // PORCEN(nMtoBas,uValue)
 
-   oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_MTOISR]:=nMtoRti
+   oLIBCOMEDIT:SETTIPPER()
+   nMtoIsr:=EJECUTAR("CALRETISLR",nMtoBas,nMtoBas,cCodCon,oLIBCOMEDIT:cTipPer,oLIBCOMEDIT:cReside,dFecha)
+
+
+   oCol:oBrw:aArrayData[oCol:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_MTOISR]:=nMtoIsr
 
    oLIBCOMEDIT:LIBSAVEFIELD(oLIBCOMEDIT:COL_LBC_MTOISR)
    oLIBCOMEDIT:PUTFIELDVALUE(oCol,uValue,oLIBCOMEDIT:COL_LBC_PORISR,nKey)
+
+   EJECUTAR("LIBCOMGETNUMISR",oLIBCOMEDIT) // genera el Número de retención de ISLR
 
 RETURN .T.
 
@@ -2108,10 +1988,16 @@ FUNCTION VALLBCMTOBAS(oCol,uValue,nCol,nKey)
   LOCAL cTipIva:=oLIBCOMEDIT:LBCGETCOLVALUE("LBC_TIPIVA"),nAt
   LOCAL cTipDoc:=oLIBCOMEDIT:LBCGETCOLVALUE("LBC_TIPDOC")
   LOCAL cNumDoc:=oLIBCOMEDIT:LBCGETCOLVALUE("LBC_NUMFAC")
+  LOCAL nPorISR:=oLIBCOMEDIT:LBCGETCOLVALUE("LBC_PORISR")
+  LOCAL cCodCon:=oLIBCOMEDIT:LBCGETCOLVALUE("LBC_CONISR")
   LOCAL nPorIva:=oLIBCOMEDIT:GETPORIVA(cTipIva)
   LOCAL oColIva:=oLIBCOMEDIT:LBCGETCOLBRW("LBC_TIPIVA")
   LOCAL oColPor:=oLIBCOMEDIT:LBCGETCOLBRW("LBC_PORIVA")
+  LOCAL oColISR:=oLIBCOMEDIT:LBCGETCOLBRW("LBC_PORISR")
+  LOCAL oColCon:=oLIBCOMEDIT:LBCGETCOLBRW("LBC_CONISR")
   LOCAL nColIva:=oLIBCOMEDIT:LBCGETCOLPOS("LBC_TIPIVA")
+  LOCAL nColCon:=oLIBCOMEDIT:LBCGETCOLBRW("LBC_CONISR")
+  LOCAL nColISR:=oLIBCOMEDIT:LBCGETCOLPOS("LBC_PORISR")
 
   oLIBCOMEDIT:PUTFIELDVALUE(oCol,uValue,oLIBCOMEDIT:COL_LBC_MTOBAS,nKey)
 
@@ -2132,6 +2018,14 @@ FUNCTION VALLBCMTOBAS(oCol,uValue,nCol,nKey)
   IF nAt=0
     oLIBCOMEDIT:LIBCOMADDLINE()
   ENDIF
+
+  // Calcular Retención de ISLR
+  // ? oColISR,nPorISR,nColISR,nKey,"oColISR,nPorISR,nColISR,nKey"
+  IF !Empty(cCodCon)
+     oLIBCOMEDIT:VALCONISLR(oColCon,cCodCon,nColCon,nKey)
+  ENDIF
+
+  oLIBCOMEDIT:VALPORISR(oColISR,nPorISR,nColISR,nKey)
 
 RETURN .T.
 
@@ -2186,15 +2080,35 @@ FUNCTION CREARDOC(lDoc)
            "LBC_TIPDOC"+GetWhere("=" ,oLIBCOMEDIT:LBC_TIPDOC)+" AND "+;
            "LBC_RIF   "+GetWhere("=" ,oLIBCOMEDIT:LBC_RIF   )
 
-   EJECUTAR("DPLIBCOMTODPDOCPRO",oLIBCOMEDIT:cCodSuc,oLIBCOMEDIT:dFchDec,cWhere)
+   IF !oLIBCOMEDIT:lVenta
+
+      EJECUTAR("DPLIBCOMTODPDOCPRO",oLIBCOMEDIT:cCodSuc,oLIBCOMEDIT:dFchDec,cWhere)
+
+   ELSE
+
+      EJECUTAR("DPLIBVTATODPDOCCLI",oLIBCOMEDIT:cCodSuc,oLIBCOMEDIT:dFchDec,cWhere)
+
+   ENDIF
 
    cCodigo:=SQLGET("DPPROVEEDOR","PRO_CODIGO","PRO_RIF"+GetWhere("=",oLIBCOMEDIT:LBC_RIF))
 
-   IF lDoc
-      EJECUTAR("VERDOCPRO",oLIBCOMEDIT:cCodSuc,oLIBCOMEDIT:LBC_TIPDOC,cCodigo,oLIBCOMEDIT:LBC_NUMFAC,"D")
+   IF !oLIBCOMEDIT:lVenta
+
+     IF lDoc
+        EJECUTAR("VERDOCPRO",oLIBCOMEDIT:cCodSuc,oLIBCOMEDIT:LBC_TIPDOC,cCodigo,oLIBCOMEDIT:LBC_NUMFAC,"D")
+     ELSE
+        EJECUTAR("DPPRODOCMNU",oLIBCOMEDIT:cCodSuc,oLIBCOMEDIT:LBC_TIPDOC,oLIBCOMEDIT:LBC_NUMFAC,cCodigo)
+     ENDIF   
+
    ELSE
-      EJECUTAR("DPPRODOCMNU",oLIBCOMEDIT:cCodSuc,oLIBCOMEDIT:LBC_TIPDOC,oLIBCOMEDIT:LBC_NUMFAC,cCodigo)
-   ENDIF   
+
+     IF lDoc
+        EJECUTAR("VERDOCCLI",oLIBCOMEDIT:cCodSuc,oLIBCOMEDIT:LBC_TIPDOC,cCodigo,oLIBCOMEDIT:LBC_NUMFAC,"D")
+     ELSE
+        EJECUTAR("DPDOCCLIMNU",oLIBCOMEDIT:cCodSuc,oLIBCOMEDIT:LBC_TIPDOC,oLIBCOMEDIT:LBC_NUMFAC,cCodigo)
+     ENDIF   
+
+   ENDIF
 
 RETURN .T.
 
@@ -2221,6 +2135,8 @@ FUNCTION CALBASEIMP(oCol,nNeto,nCol,nKey)
 
    oColIva :=oLIBCOMEDIT:oBrw:aCols[nCol]
    oLIBCOMEDIT:PUTFIELDVALUE(oCol,nNeto,nCol,nKey)
+
+
   
 RETURN nBaseImp
 
@@ -2347,9 +2263,17 @@ FUNCTION PUTCTATIPDOC()
       cWhere  :="LBC_CODSUC"+GetWhere("=",oLIBCOMEDIT:cCodSuc)+" AND "+;
                 "LBC_TIPDOC"+GetWhere("=",cTipDoc            )
 
-      cNumero :=oLIBCOMEDIT:aCodCta[nAt,7]
-      cNumero :=SQLINCREMENTAL(oLIBCOMEDIT:cTable,"LBC_NUMFAC",cWhere+" AND LBC_NUMFAC"+GetWhere("<>",cNumFac),NIL,cNumero,.T.,nLen)
-      cNumFis :=SQLINCREMENTAL(oLIBCOMEDIT:cTable,"LBC_NUMFIS",cWhere+" AND LBC_NUMFIS"+GetWhere("<>",cNumFis),NIL,cNumFis,.T.,nLen)
+
+      IF oLIBCOMEDIT:lVenta .OR. (!oLIBCOMEDIT:lVenta .AND. !oLIBCOMEDIT:aCodCta[nAt,8]) // no libro de compras
+ 
+        cNumero :=oLIBCOMEDIT:aCodCta[nAt,7]
+        cNumero :=SQLINCREMENTAL(oLIBCOMEDIT:cTable,"LBC_NUMFAC",cWhere+" AND LBC_NUMFAC"+GetWhere("<>",cNumFac),NIL,cNumero,.T.,nLen)
+        cNumFis :=SQLINCREMENTAL(oLIBCOMEDIT:cTable,"LBC_NUMFIS",cWhere+" AND LBC_NUMFIS"+GetWhere("<>",cNumFis),NIL,cNumFis,.T.,nLen)
+
+        oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_NUMFAC]:=cNumero
+        oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_NUMFIS]:=cNumFis
+
+      ENDIF
 
       oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,nField+0]:=cCodCta
       oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,nField+1]:=cDescri
@@ -2357,9 +2281,6 @@ FUNCTION PUTCTATIPDOC()
 
       oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_CXC   ]:=nCxC
       oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,oLIBCOMEDIT:COL_TDC_CLRGRA]:=nColor
-      oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_NUMFAC]:=cNumero
-      oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt,oLIBCOMEDIT:COL_LBC_NUMFIS]:=cNumFis
-
       oLIBCOMEDIT:LIBCOMGRABAR(.T.) // Guarda toda la línea
 
    ENDIF
@@ -2387,5 +2308,31 @@ FUNCTION PUTDIA(oCol,uValue,nCol,nKey)
   ENDIF
 
 RETURN .F.
+
+FUNCTION SETTIPPER()
+   LOCAL aLine  :=oLIBCOMEDIT:oBrw:aArrayData[oLIBCOMEDIT:oBrw:nArrayAt]
+   LOCAL cRif      :=aLine[oLIBCOMEDIT:COL_LBC_RIF] 
+
+   oLIBCOMEDIT:cReside:=IF(Empty(oLIBCOMEDIT:cReside),"S",oLIBCOMEDIT:cReside)
+   cRif       :=UPPER(cRif)
+   oLIBCOMEDIT:cTipPer:=LEFT(cRif,1)
+   oLIBCOMEDIT:cTipPer:=IF(ISALLDIGIT(cRif) .OR. (LEFT(cRif,1)="V" .OR. LEFT(cRif,1)="E"),"N",oLIBCOMEDIT:cTipPer)
+
+RETURN .T.
+
+/*
+// Editar Codigo de RetencióN
+*/
+FUNCTION EDITCONISLR(nCol,lSave)
+RETURN EJECUTAR("LIBCOMEDITCONISLR",nCol,lSave,oLIBCOMEDIT)
+
+/*
+// Validar codigo de ISLR
+*/
+FUNCTION VALCONISLR(oCol,uValue,nCol,nKey)
+EJECUTAR("LIBCOMVALCONISLR",oCol,uValue,nCol,nKey,oLIBCOMEDIT)
+
+FUNCTION VALNUMISR(oCol,uValue,nCol,nKey)
+EJECUTAR("LIBCOMVALNUMISR",oCol,uValue,nCol,nKey,oLIBCOMEDIT)
 
 // EOF
