@@ -9,8 +9,8 @@
 #INCLUDE "DPXBASE.CH"
 
 PROCE MAIN(cCodSuc,dFchDec,cWhere)
-    LOCAL oTable,cCodPro:=STRZERO(0,10),oTableO,oTableC,cTipDoc,cNumero
-    LOCAL oDb:=OpenOdbc(oDp:cDsnData),cOrg:="D",cCxpTip:="",cNumPar,cSql,nCxP
+    LOCAL oTable,cCodPro:=STRZERO(0,10),oTableO,oTableC,oTableISRL:=NIL,oTableRTI:=NIL,cTipDoc,cNumero
+    LOCAL oDb:=OpenOdbc(oDp:cDsnData),cOrg:="D",cCxpTip:="",cNumPar,cSql,nCxP,cWhereRet
 
     DEFAULT cCodSuc:=oDp:cSucursal,;
             dFchDec:=FCHFINMES(oDp:dFecha)
@@ -44,15 +44,13 @@ IF .F.
 ENDIF
 
     oTableO:=OpenTable(" SELECT * FROM DPDOCPRO ",.F.)
-//    oTable :=OpenTable(" SELECT * FROM DPLIBCOMPRASDET "+;
-//                       " LEFT JOIN DPRIF ON LBC_RIF=RIF_ID "+;
-//                       " WHERE "+cWhere+" ORDER BY CONCAT(LBC_NUMPAR,LBC_ITEM) ",.T.)
+
+    // oTableISRL:=OpenTable(" SELECT * FROM DPDOCPROISLR ",.F.) 
+    // oTableRTI :=OpenTable(" SELECT * FROM DPDOCCLIRTI " ,.F.)
 
     oTable :=OpenTable(" SELECT * FROM DPLIBCOMPRASDET "+;
                        " INNER JOIN DPTIPDOCPRO ON LBC_TIPDOC=TDC_TIPO "+;
                        " WHERE "+cWhere+" ORDER BY CONCAT(LBC_NUMPAR,LBC_ITEM) ",.T.)
-//    oTable:Browse()
-
     DpMsgRun("Generando Documentos ")
     DpMsgSetTotal(oTable:RecCount())
 
@@ -71,8 +69,8 @@ ENDIF
          cNumero:=oTable:LBC_NUMFAC
 
          nCxP   :=oTable:LBC_CXP
-//         nCxP   :=IF(oTable:TDC_CXP="D", 1,nCxP)   
-//         nCxP   :=IF(oTable:TDC_CXP="C",-1,nCxP)
+         nCxP   :=IF(oTable:TDC_CXP="D", 1,nCxP)   
+         nCxP   :=IF(oTable:TDC_CXP="C",-1,nCxP)
 
          cWhere:=oTable:cWhere+" AND LBC_NUMPAR"+GetWhere("=",oTable:LBC_NUMPAR)+" AND LBC_ITEM  "+GetWhere("=",oTable:LBC_ITEM)
 
@@ -112,18 +110,122 @@ ENDIF
          cCxpTip:=IF(ALLTRIM(oTable:LBC_USOCON)=="Banco"       ,"BCO",cCxpTip)
          cCxpTip:=IF(ALLTRIM(oTable:LBC_USOCON)=="Banco Divisa","BCE",cCxpTip)
 
-         SQLUPDATE("DPDOCPRO",{"DOC_RIF","DOC_CXPTIP","DOC_CENCOS"},{cCodPro,cCxpTip,oTable:LBC_CENCOS},cWhere)
-
-//? oTable:LBC_CENCOS,CLPCOPY(oDp:cSql)
+         SQLUPDATE("DPDOCPRO",{"DOC_RIF","DOC_CXPTIP","DOC_CENCOS","DOC_LBCPAR","DOC_CXP"},{cCodPro,cCxpTip,oTable:LBC_CENCOS,cNumPar,nCxP},cWhere)
 
         ENDIF
+
+        // Genera Retención de ISLR
+        IF !Empty(oTable:LBC_NUMISR)
+
+           IF oTableISRL=NIL
+              oTableISRL:=OpenTable(" SELECT * FROM DPDOCPROISLR ",.F.)
+           ENDIF
+
+           cWhereRet :="DOC_CODSUC"+GetWhere("=",oTable:LBC_CODSUC)+" AND "+;
+                       "DOC_TIPDOC"+GetWhere("=","RET"            )+" AND "+;
+                       "DOC_CODIGO"+GetWhere("=",cCodPro          )+" AND "+;
+                       "DOC_NUMERO"+GetWhere("=",oTable:LBC_NUMISR)+" AND "+;
+                       "DOC_TIPTRA"+GetWhere("=","D"              )
+
+           SQLDELETE("DPDOCPRO",cWhereRet)
+
+           cWhereRet:="RXP_CODSUC"+GetWhere("=",oTable:LBC_CODSUC)+" AND "+;
+                      "RXP_TIPDOC"+GetWhere("=",cTipDoc          )+" AND "+;
+                      "RXP_CODIGO"+GetWhere("=",cCodPro          )+" AND "+;
+                      "RXP_NUMDOC"+GetWhere("=",oTable:LBC_NUMFAC)+" AND "+;
+                      "RXP_TIPTRA"+GetWhere("=","D"              )
+
+           SQLDELETE("DPDOCPROISLR",cWhereRet)
+
+           EJECUTAR("DPDOCPROCREA",oTable:LBC_CODSUC,"RET",oTable:LBC_NUMISR,oTable:LBC_NUMFIS,cCodPro,oTable:LBC_FECHA,oDp:cMonedaExt,cOrg,oTable:LBC_CENCOS,oTable:LBC_MTOISR,;
+                                   0,oTable:LBC_VALCAM,oTable:LBC_FCHDEC,NIL,oTableO,nCxP*-1)
+
+           SQLUPDATE("DPDOCPRO",{"DOC_PLAIMP","DOC_LBCPAR","DOC_ESTADO"},{oTable:LBC_CONISR,cNumPar,"AC"},;
+                                 "DOC_CODSUC"+GetWhere("=",oTable:LBC_CODSUC)+" AND "+;
+                                 "DOC_TIPDOC"+GetWhere("=","RET"            )+" AND "+;
+                                 "DOC_CODIGO"+GetWhere("=",cCodPro          )+" AND "+;
+                                 "DOC_NUMERO"+GetWhere("=",oTable:LBC_NUMISR)+" AND "+;
+                                 "DOC_TIPTRA"+GetWhere("=","D"))
+
+           oTableISRL:AppendBlank()
+           oTableISRL:Replace("RXP_CODSUC",oTable:LBC_CODSUC)
+           oTableISRL:Replace("RXP_MTOBAS",oTable:LBC_MTOBAS)
+           oTableISRL:Replace("RXP_MTORET",oTable:LBC_MTOISR)
+           oTableISRL:Replace("RXP_MTOSUJ",oTable:LBC_MTOBAS)
+           oTableISRL:Replace("RXP_PORCEN",oTable:LBC_PORISR)
+           oTableISRL:Replace("RXP_CODCON",oTable:LBC_CONISR)
+           oTableISRL:Replace("RXP_CODEQI",oTable:LBC_CONISR)
+           oTableISRL:Replace("RXP_CODIGO",cCodPro)
+           oTableISRL:Replace("RXP_TIPDOC",cTipDoc)
+           oTableISRL:Replace("RXP_DOCTIP","RET"  ) // IF(cTipDoc="FAC","RET",)
+           oTableISRL:Replace("RXP_TIPTRA","D"    )
+           oTableISRL:Replace("RXP_DOCNUM",oTable:LBC_NUMISR)
+           oTableISRL:Replace("RXP_NUMDOC",cNumero)
+           oTableISRL:Replace("RXP_DESCRI",SQLGET("DPCONRETISLR","CTR_DESCRI","CTR_CODIGO"+GetWhere("=",oTable:LBC_CONISR)))
+           oTableISRL:Commit("")
+        
+        ENDIF
+
+        // Genera Retención de IVA
+        IF !Empty(oTable:LBC_NUMRTI)
+
+           IF oTableRTI=NIL
+              oTableRTI:=OpenTable(" SELECT * FROM DPDOCPRORTI " ,.F.)
+           ENDIF
+
+           cWhereRet :="DOC_CODSUC"+GetWhere("=",oTable:LBC_CODSUC)+" AND "+;
+                       "DOC_TIPDOC"+GetWhere("=","RTI"            )+" AND "+;
+                       "DOC_CODIGO"+GetWhere("=",cCodPro          )+" AND "+;
+                       "DOC_NUMERO"+GetWhere("=",oTable:LBC_NUMRTI)+" AND "+;
+                       "DOC_TIPTRA"+GetWhere("=","D"              )
+
+           SQLDELETE("DPDOCPRO",cWhereRet)
+
+           cWhereRet:="RTI_CODSUC"+GetWhere("=",oTable:LBC_CODSUC)+" AND "+;
+                      "RTI_TIPDOC"+GetWhere("=",cTipDoc          )+" AND "+;
+                      "RTI_CODIGO"+GetWhere("=",cCodPro          )+" AND "+;
+                      "RTI_NUMERO"+GetWhere("=",oTable:LBC_NUMFAC)+" AND "+;
+                      "RTI_TIPTRA"+GetWhere("=","D"              )
+
+           SQLDELETE("DPDOCPRORTI",cWhereRet)
+
+           EJECUTAR("DPDOCPROCREA",oTable:LBC_CODSUC,"RTI",oTable:LBC_NUMRTI,oTable:LBC_NUMFIS,cCodPro,oTable:LBC_FECHA,oDp:cMonedaExt,cOrg,oTable:LBC_CENCOS,oTable:LBC_MTORTI,;
+                                   0,oTable:LBC_VALCAM,oTable:LBC_FCHDEC,NIL,oTableO,nCxP*-1)
+
+           SQLUPDATE("DPDOCPRO",{"DOC_PLAIMP","DOC_LBCPAR","DOC_ESTADO"},{oTable:LBC_CONISR,cNumPar,"AC"},;
+                                 "DOC_CODSUC"+GetWhere("=",oTable:LBC_CODSUC)+" AND "+;
+                                 "DOC_TIPDOC"+GetWhere("=","RTI"            )+" AND "+;
+                                 "DOC_CODIGO"+GetWhere("=",cCodPro          )+" AND "+;
+                                 "DOC_NUMERO"+GetWhere("=",oTable:LBC_NUMISR)+" AND "+;
+                                 "DOC_TIPTRA"+GetWhere("=","D"))
+
+           oTableRTI:AppendBlank()
+           oTableRTI:Replace("RTI_CODSUC",oTable:LBC_CODSUC)
+           oTableRTI:Replace("RTI_CODIGO",cCodPro)
+           oTableRTI:Replace("RTI_TIPDOC",cTipDoc)
+           oTableRTI:Replace("RTI_DOCTIP","RTI"  ) 
+           oTableRTI:Replace("RTI_TIPTRA","D"    )
+           oTableRTI:Replace("RTI_NUMTRA",oTable:LBC_NUMRTI)
+           oTableRTI:Replace("RTI_DOCNUM",oTable:LBC_NUMRTI)
+           oTableRTI:Replace("RTI_NUMERO",cNumero)
+           oTableRTI:Replace("RTI_FCHDEC",dFchDec)
+           oTableRTI:Replace("RTI_FECHA" ,oTable:LBC_FECHA)
+           oTableRTI:Replace("RTI_AAMM"  ,LEFT(DTOS(dFchDec),4))	
+           oTableRTI:Replace("RTI_PORCEN",oTable:LBC_PORRTI)
+           oTableRTI:Replace("RTI_NUMRET",SQLINCREMENTAL("DPDOCPRORTI","RTI_NUMRET","1=1",NIL,NIL,.T.,8))
+           oTableRTI:Replace("RTI_NUMMRT",SQLINCREMENTAL("DPDOCPRORTI","RTI_NUMRET","RTI_CODIGO"+GetWhere("=",cCodigo),NIL,NIL,.T.,8))
+           oTableRTI:Commit("")
+
+        
+        ENDIF
+
+        // SQLUPDATE("DPDOCPROCTA","CCD_ACT",0,cWhere) // Por ahora, luego debera removerlos
 
         cWhere:="CCD_CODSUC"+GetWhere("=",cCodSuc)+" AND "+;
                 "CCD_TIPDOC"+GetWhere("=",cTipDoc)+" AND "+;
                 "CCD_CODIGO"+GetWhere("=",cCodPro)+" AND "+;
                 "CCD_NUMERO"+GetWhere("=",cNumero)
 
-        // SQLUPDATE("DPDOCPROCTA","CCD_ACT",0,cWhere) // Por ahora, luego debera removerlos
         SQLDELETE("DPDOCPROCTA",cWhere) // Por ahora, luego debera removerlos
 
         WHILE !oTable:Eof() .AND. (cNumPar=oTable:LBC_NUMPAR) 
@@ -181,21 +283,6 @@ ENDIF
 
         EJECUTAR("DPDOCCLIIMP",cCodSuc,cTipDoc,cCodPro,cNumero,.T.,0,0,0,"C",0)
 
-        // Genera Retención de ISLR
-        IF !Empty(oTable:LBC_NUMISR)
-
-           EJECUTAR("DPDOCPROCREA",oTable:LBC_CODSUC,"RET",oTable:LBC_NUMISR,oTable:LBC_NUMFIS,cCodPro,oTable:LBC_FECHA,oDp:cMonedaExt,cOrg,oTable:LBC_CENCOS,oTable:LBC_MTOISR,;
-                                   0,oTable:LBC_VALCAM,oTable:LBC_FCHDEC,NIL,oTableO,nCxP*-1)
-
-           SQLUPDATE("DPDOCPRO","DOC_PLAIMP",oTable:LBC_CONISR,"DOC_CODSUC"+GetWhere("=",oTable:LBC_CODSUC)+" AND "+;
-                                                               "DOC_TIPDOC"+GetWhere("=","RET"            )+" AND "+;
-                                                               "DOC_CODIGO"+GetWhere("=",cCodPro          )+" AND "+;
-                                                               "DOC_NUMERO"+GetWhere("=",oTable:LBC_NUMISR)+" AND "+;
-                                                               "DOC_TIPTRA"+GetWhere("=","D"))
- 
-
-           
-        ENDIF
 
         // oTable:DbSkip()
 
@@ -205,6 +292,9 @@ ENDIF
     oDb:EXECUTE(cSql)
     // oTable:Browse()
     oTable:End()
+
+    oTableISRL:End(.T.)
+    oTableRTI:End(.T.)
 
     oDb:EXECUTE("SET FOREIGN_KEY_CHECKS = 1")
 

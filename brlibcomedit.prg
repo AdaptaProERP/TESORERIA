@@ -291,11 +291,16 @@ FUNCTION ViewData(aData,cTitle,cWhere_,cNumRei)
 
    oLIBCOMEDIT:cItemChange:=""
    oLIBCOMEDIT:LBC_FCHDEC :=dFchDec
+
+   // Retenciones de ISLR
    oLIBCOMEDIT:nLenRet    :=SQLGET("DPTIPDOCPRO","TDC_LEN,TDC_ZERO","TDC_TIPO"+GetWhere("=","RET"))
    oLIBCOMEDIT:lZeroRet   :=DPSQLROW(2)
-   oLIBCOMEDIT:cNumRet    :=EJECUTAR("DPDOCCLIGETNUM","RET") 
+   oLIBCOMEDIT:cNumRet    :=IF(lVenta,EJECUTAR("DPDOCCLIGETNUM","RET"),EJECUTAR("DPDOCPROGETNUM","RET"))
 
-
+   //Retenciones de IVA
+   oLIBCOMEDIT:nLenRti    :=SQLGET("DPTIPDOCPRO","TDC_LEN,TDC_ZERO","TDC_TIPO"+GetWhere("=","RTI"))
+   oLIBCOMEDIT:lZeroRti   :=DPSQLROW(2)
+   oLIBCOMEDIT:cNumRti    :=IF(lVenta,EJECUTAR("DPDOCCLIGETNUM","RTI"),EJECUTAR("DPDOCPROGETNUM","RTI")) 
 
    // Guarda los parámetros del Browse cuando cierra la ventana
    oLIBCOMEDIT:bValid   :={|| EJECUTAR("BRWSAVEPAR",oLIBCOMEDIT)}
@@ -1946,6 +1951,8 @@ FUNCTION VALPORRTI(oCol,uValue,oLIBCOMEDIT:COL_LBC_PORRTI,nKey)
    oLIBCOMEDIT:PUTFIELDVALUE(oCol,uValue,oLIBCOMEDIT:COL_LBC_PORRTI,nKey)
 
    SQLUPDATE("DPPROVEEDOR","PRO_RETIVA",uValue,"PRO_RIF"+GetWhere("=",cRif))
+
+   EJECUTAR("LIBCOMGETNUMRTI",oLIBCOMEDIT) // genera el Número de retención de IVA
 
 RETURN .T.
 
