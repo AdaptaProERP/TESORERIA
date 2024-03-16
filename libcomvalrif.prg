@@ -261,6 +261,15 @@ PROCE MAIN(oCol,uValue,nCol,nKey)
     oCol:oBrw:nColSel:=oLIBCOMEDIT:COL_LBC_CODCTA
   ENDIF
 
+  // 08/03/2024 nombre del proveedor quedó vacio
+  IF !oLIBCOMEDIT:lVenta .AND. Empty(aLine[oLIBCOMEDIT:COL_PRO_NOMBRE])
+     oCol:oBrw:nColSel:=oLIBCOMEDIT:COL_PRO_NOMBRE
+  ENDIF
+
+  IF oLIBCOMEDIT:lVenta .AND. Empty(aLine[oLIBCOMEDIT:COL_CLI_NOMBRE])
+     oCol:oBrw:nColSel:=oLIBCOMEDIT:COL_CLI_NOMBRE
+  ENDIF
+
   oCol:oBrw:DrawLine(.T.)
 
 RETURN .T.

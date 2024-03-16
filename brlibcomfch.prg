@@ -173,7 +173,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_)
    oLIBCOMFCH:lBtnPageUp  :=.T.
    oLIBCOMFCH:lBtnFilters :=.T.
    oLIBCOMFCH:lBtnFind    :=.T.
-   oLIBCOMFCH:lBtnColor   :=.T.
+   oLIBCOMFCH:lBtnColor   :=.F.
 
    oLIBCOMFCH:nClrPane1:=16775408
    oLIBCOMFCH:nClrPane2:=16771797
@@ -321,7 +321,12 @@ FUNCTION ViewDatBar()
 //   ENDIF
 
    DEFINE CURSOR oCursor HAND
-   DEFINE BUTTONBAR oBar SIZE 52-15,60-15+40+00 OF oDlg 3D CURSOR oCursor
+   IF !oDp:lBtnText 
+     DEFINE BUTTONBAR oBar SIZE 52-15,60-15+40+00 OF oDlg 3D CURSOR oCursor
+   ELSE 
+     DEFINE BUTTONBAR oBar SIZE oDp:nBtnWidth+10,oDp:nBarnHeight+6 OF oDlg 3D CURSOR oCursor 
+   ENDIF 
+
    DEFINE FONT oFont  NAME "Tahoma"   SIZE 0, -10 BOLD
 
 
@@ -330,12 +335,17 @@ FUNCTION ViewDatBar()
 
    IF .F. .AND. Empty(oLIBCOMFCH:cServer)
 
-     DEFINE BUTTON oBtn;
+   oLIBCOMFCH:oFontBtn   :=oFont    
+   oLIBCOMFCH:nClrPaneBar:=oDp:nGris
+   oLIBCOMFCH:oBrw:oLbx  :=oLIBCOMFCH
+
+ DEFINE BUTTON oBtn;
             OF oBar;
             NOBORDER;
             FONT oFont;
             FILENAME "BITMAPS\VIEW.BMP";
-            ACTION EJECUTAR("BRWRUNLINK",oLIBCOMFCH:oBrw,oLIBCOMFCH:cSql)
+            TOP PROMPT "Consulta"; 
+            ACTION  EJECUTAR("BRWRUNLINK",oLIBCOMFCH:oBrw,oLIBCOMFCH:cSql)
 
      oBtn:cToolTip:="Consultar Vinculos"
 
@@ -347,7 +357,8 @@ FUNCTION ViewDatBar()
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\RUN.BMP";
-          ACTION oLIBCOMFCH:EDITLIBCOM()
+          TOP PROMPT "Registrar"; 
+          ACTION  oLIBCOMFCH:EDITLIBCOM()
 
    oBtn:cToolTip:="Editar Documentos Libro de "+IF(oLIBCOMFCH:lVenta,"Ventas","Compras")
 
@@ -358,7 +369,19 @@ FUNCTION ViewDatBar()
             NOBORDER;
             FONT oFont;
             FILENAME "BITMAPS\LIBRODECOMPRA.BMP";
+            TOP PROMPT "Libro C."; 
             ACTION oLIBCOMFCH:DPLIBCOM()
+
+    DEFINE BUTTON oBtn;
+           OF oBar;
+           NOBORDER;
+           FONT oFont;
+           FILENAME "BITMAPS\XDELETE.BMP";
+             TOP PROMPT "Eliminar"; 
+              ACTION  oLIBCOMFCH:BRTIPDOCPRO()
+
+     oBtn:cToolTip:="Eliminar Documentos"
+
    ELSE
 
    ENDIF
@@ -371,9 +394,13 @@ FUNCTION ViewDatBar()
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\CONTABILIZAR.BMP";
+          TOP PROMPT "Contablz."; 
           ACTION oLIBCOMFCH:RUNCONTAB()
 
    oBtn:cToolTip:="Contabilizar"
+
+
+
 
 /*
    IF Empty(oLIBCOMFCH:cServer) .AND. !Empty(SQLGET("DPBRWLNK","EBR_CODIGO","EBR_CODIGO"+GetWhere("=","LIBCOMFCH")))
@@ -386,7 +413,8 @@ FUNCTION ViewDatBar()
        NOBORDER;
        FONT oFont;
        FILENAME "BITMAPS\XBROWSE.BMP";
-       ACTION EJECUTAR("BRWRUNBRWLINK",oLIBCOMFCH:oBrw,"LIBCOMFCH",oLIBCOMFCH:cSql,oLIBCOMFCH:nPeriodo,oLIBCOMFCH:dDesde,oLIBCOMFCH:dHasta,oLIBCOMFCH)
+         TOP PROMPT "Detalles"; 
+              ACTION  EJECUTAR("BRWRUNBRWLINK",oLIBCOMFCH:oBrw,"LIBCOMFCH",oLIBCOMFCH:cSql,oLIBCOMFCH:nPeriodo,oLIBCOMFCH:dDesde,oLIBCOMFCH:dHasta,oLIBCOMFCH)
 
        oBtn:cToolTip:="Ejecutar Browse Vinculado(s)"
        oLIBCOMFCH:oBtnRun:=oBtn
@@ -434,11 +462,13 @@ ENDIF
 
 
 IF oLIBCOMFCH:lBtnSave
-
+/*
       DEFINE BITMAP OF OUTLOOK oBRWMENURUN:oOut ;
              BITMAP "BITMAPS\XSAVE.BMP";
              PROMPT "Guardar Consulta";
-             ACTION EJECUTAR("DPBRWSAVE",oLIBCOMFCH:oBrw,oLIBCOMFCH:oFrm)
+             TOP PROMPT "Grabar"; 
+            ACTION  EJECUTAR("DPBRWSAVE",oLIBCOMFCH:oBrw,oLIBCOMFCH:oFrm)
+*/
 ENDIF
 
 IF oLIBCOMFCH:lBtnMenuBrw
@@ -448,7 +478,8 @@ IF oLIBCOMFCH:lBtnMenuBrw
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\BRWMENU.BMP",NIL,"BITMAPS\BRWMENUG.BMP";
-          ACTION (EJECUTAR("BRWBUILDHEAD",oLIBCOMFCH),;
+            TOP PROMPT "Menú"; 
+              ACTION  (EJECUTAR("BRWBUILDHEAD",oLIBCOMFCH),;
                   EJECUTAR("DPBRWMENURUN",oLIBCOMFCH,oLIBCOMFCH:oBrw,oLIBCOMFCH:cBrwCod,oLIBCOMFCH:cTitle,oLIBCOMFCH:aHead));
           WHEN !Empty(oLIBCOMFCH:oBrw:aArrayData[1,1])
 
@@ -464,7 +495,8 @@ IF oLIBCOMFCH:lBtnFind
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\XFIND.BMP";
-          ACTION EJECUTAR("BRWSETFIND",oLIBCOMFCH:oBrw)
+            TOP PROMPT "Buscar"; 
+              ACTION  EJECUTAR("BRWSETFIND",oLIBCOMFCH:oBrw)
 
    oBtn:cToolTip:="Buscar"
 ENDIF
@@ -477,7 +509,8 @@ IF oLIBCOMFCH:lBtnFilters
           FONT oFont;
           FILENAME "BITMAPS\FILTRAR.BMP";
           MENU EJECUTAR("BRBTNMENUFILTER",oLIBCOMFCH:oBrw,oLIBCOMFCH);
-          ACTION EJECUTAR("BRWSETFILTER",oLIBCOMFCH:oBrw)
+            TOP PROMPT "Filtrar"; 
+              ACTION  EJECUTAR("BRWSETFILTER",oLIBCOMFCH:oBrw)
 
    oBtn:cToolTip:="Filtrar Registros"
 ENDIF
@@ -489,7 +522,8 @@ IF oLIBCOMFCH:lBtnOptions
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\OPTIONS.BMP",NIL,"BITMAPS\OPTIONSG.BMP";
-          ACTION EJECUTAR("BRWSETOPTIONS",oLIBCOMFCH:oBrw);
+            TOP PROMPT "Opciones"; 
+              ACTION  EJECUTAR("BRWSETOPTIONS",oLIBCOMFCH:oBrw);
           WHEN LEN(oLIBCOMFCH:oBrw:aArrayData)>1
 
    oBtn:cToolTip:="Filtrar según Valores Comunes"
@@ -503,7 +537,8 @@ IF oLIBCOMFCH:lBtnRefresh
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\REFRESH.BMP";
-          ACTION oLIBCOMFCH:BRWREFRESCAR()
+            TOP PROMPT "Refrescar"; 
+              ACTION  oLIBCOMFCH:BRWREFRESCAR()
 
    oBtn:cToolTip:="Refrescar"
 
@@ -516,7 +551,8 @@ IF oLIBCOMFCH:lBtnCrystal
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\CRYSTAL.BMP";
-          ACTION EJECUTAR("BRWTODBF",oLIBCOMFCH)
+            TOP PROMPT "Crystal"; 
+              ACTION  EJECUTAR("BRWTODBF",oLIBCOMFCH)
 
    oBtn:cToolTip:="Visualizar Mediante Crystal Report"
 
@@ -530,7 +566,8 @@ IF oLIBCOMFCH:lBtnExcel
             NOBORDER;
             FONT oFont;
             FILENAME "BITMAPS\EXCEL.BMP";
-            ACTION (EJECUTAR("BRWTOEXCEL",oLIBCOMFCH:oBrw,oLIBCOMFCH:cTitle,oLIBCOMFCH:cNombre))
+              TOP PROMPT "Excel"; 
+              ACTION  (EJECUTAR("BRWTOEXCEL",oLIBCOMFCH:oBrw,oLIBCOMFCH:cTitle,oLIBCOMFCH:cNombre))
 
      oBtn:cToolTip:="Exportar hacia Excel"
 
@@ -545,7 +582,8 @@ IF oLIBCOMFCH:lBtnHtml
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\html.BMP";
-          ACTION (oLIBCOMFCH:HTMLHEAD(),EJECUTAR("BRWTOHTML",oLIBCOMFCH:oBrw,NIL,oLIBCOMFCH:cTitle,oLIBCOMFCH:aHead))
+            TOP PROMPT "Html"; 
+              ACTION  (oLIBCOMFCH:HTMLHEAD(),EJECUTAR("BRWTOHTML",oLIBCOMFCH:oBrw,NIL,oLIBCOMFCH:cTitle,oLIBCOMFCH:aHead))
 
    oBtn:cToolTip:="Generar Archivo html"
 
@@ -561,7 +599,8 @@ IF oLIBCOMFCH:lBtnPreview
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\PREVIEW.BMP";
-          ACTION (EJECUTAR("BRWPREVIEW",oLIBCOMFCH:oBrw))
+            TOP PROMPT "Preview"; 
+              ACTION  (EJECUTAR("BRWPREVIEW",oLIBCOMFCH:oBrw))
 
    oBtn:cToolTip:="Previsualización"
 
@@ -576,7 +615,8 @@ ENDIF
             NOBORDER;
             FONT oFont;
             FILENAME "BITMAPS\XPRINT.BMP";
-            ACTION oLIBCOMFCH:IMPRIMIR()
+            TOP PROMPT "Imprimir"; 
+            ACTION  oLIBCOMFCH:IMPRIMIR()
 
       oBtn:cToolTip:="Imprimir"
 
@@ -604,7 +644,8 @@ ENDIF
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\xTOP.BMP";
-          ACTION (oLIBCOMFCH:oBrw:GoTop(),oLIBCOMFCH:oBrw:Setfocus())
+          TOP PROMPT "Primero"; 
+          ACTION  (oLIBCOMFCH:oBrw:GoTop(),oLIBCOMFCH:oBrw:Setfocus())
 
 IF nWidth>800 .OR. nWidth=0
 
@@ -615,7 +656,8 @@ IF nWidth>800 .OR. nWidth=0
             NOBORDER;
             FONT oFont;
             FILENAME "BITMAPS\xSIG.BMP";
-            ACTION (oLIBCOMFCH:oBrw:PageDown(),oLIBCOMFCH:oBrw:Setfocus())
+              TOP PROMPT "Avance"; 
+              ACTION  (oLIBCOMFCH:oBrw:PageDown(),oLIBCOMFCH:oBrw:Setfocus())
   ENDIF
 
   IF  oLIBCOMFCH:lBtnPageUp
@@ -625,7 +667,8 @@ IF nWidth>800 .OR. nWidth=0
            NOBORDER;
            FONT oFont;
            FILENAME "BITMAPS\xANT.BMP";
-           ACTION (oLIBCOMFCH:oBrw:PageUp(),oLIBCOMFCH:oBrw:Setfocus())
+             TOP PROMPT "Anterior"; 
+              ACTION  (oLIBCOMFCH:oBrw:PageUp(),oLIBCOMFCH:oBrw:Setfocus())
   ENDIF
 
 ENDIF
@@ -635,18 +678,22 @@ ENDIF
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\xFIN.BMP";
-          ACTION (oLIBCOMFCH:oBrw:GoBottom(),oLIBCOMFCH:oBrw:Setfocus())
+            TOP PROMPT "Ultimo"; 
+              ACTION  (oLIBCOMFCH:oBrw:GoBottom(),oLIBCOMFCH:oBrw:Setfocus())
 
    DEFINE BUTTON oBtn;
           OF oBar;
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\XSALIR.BMP";
-          ACTION oLIBCOMFCH:Close()
+            TOP PROMPT "Cerrar"; 
+              ACTION  oLIBCOMFCH:Close()
 
   oLIBCOMFCH:oBrw:SetColor(0,oLIBCOMFCH:nClrPane1)
 
-  oLIBCOMFCH:SETBTNBAR(40,40,oBar)
+//  oLIBCOMFCH:SETBTNBAR(40,40,oBar)
+
+  oBar:SetSize(0,100,.T.)
 
   EVAL(oLIBCOMFCH:oBrw:bChange)
 
@@ -661,7 +708,7 @@ ENDIF
   // Controles se Inician luego del Ultimo Boton
 
   nCol:=10
-  nLin:=50
+  nLin:=50+20
 
   // AEVAL(oBar:aControls,{|o,n|nCol:=nCol+o:nWidth() })
 
@@ -878,6 +925,7 @@ FUNCTION LEERDATA(cWhere,oBrw,cServer,oLIBCOMFCH,cCodSuc,cCenCos,cCodCaj,lVenta)
    LOCAL oDb
    LOCAL nAt,nRowSel,cWhereJ:=""
    LOCAL cCxP:="*LBC_CXP"
+   LOCAL cJoin:=""
 
    DEFAULT cWhere:=""
 
@@ -920,6 +968,13 @@ FUNCTION LEERDATA(cWhere,oBrw,cServer,oLIBCOMFCH,cCodSuc,cCenCos,cCodCaj,lVenta)
      cCxP:="*LBC_CXC"
    ENDIF
 
+   IF LEFT(oDp:cTipCon,1)="O"
+     cJoin:="   LEFT JOIN DPLIBCOMPRASDET   ON PLP_CODSUC=LBC_CODSUC AND YEAR(LBC_FCHDEC)=YEAR(PLP_FCHDEC) AND MONTH(LBC_FCHDEC)=MONTH(PLP_FCHDEC) "+IF(Empty(cWhereJ),""," AND "+cWhereJ)
+   ELSE
+     cJoin:="   LEFT JOIN DPLIBCOMPRASDET   ON PLP_CODSUC=LBC_CODSUC AND LBC_FCHDEC=PLP_FCHDEC "+IF(Empty(cWhereJ),""," AND "+cWhereJ)
+   ENDIF
+
+
    cSql:=" SELECT  "+;
           "   PLP_CODSUC, "+;
           "   PLP_FCHDEC, "+;  
@@ -936,9 +991,9 @@ FUNCTION LEERDATA(cWhere,oBrw,cServer,oLIBCOMFCH,cCodSuc,cCenCos,cCodCaj,lVenta)
           "       PLP_TIPDOC=PGC_TIPDOC AND "+;
           "       PLP_NUMERO=PGC_NUMERO AND "+;
           "       PLP_TIPTRA='D' "+;
-          "   LEFT JOIN DPLIBCOMPRASDET   ON PLP_CODSUC=LBC_CODSUC AND LBC_FCHDEC=PLP_FCHDEC "+IF(Empty(cWhereJ),""," AND "+cWhereJ)+;
+          cJoin+;
           "   WHERE 1=1 "+;
-          "   GROUP BY PLP_CODSUC,PLP_FCHDEC,PLP_FECHA  ORDER BY PLP_FECHA"+;
+          "   GROUP BY PLP_CODSUC,PLP_FCHDEC  ORDER BY PLP_FECHA"+;
           ""
 
   IF lVenta
@@ -1117,13 +1172,16 @@ FUNCTION RUNCONTAB()
    LOCAL cWhere :="DOC_CXPTIP"+GetWhere("=","LBC"),cCodSuc:=oLIBCOMFCH:cCodSuc,nPeriodo:=oDp:nIndicada,dDesde:=dFchDec,dHasta:=dFchDec,cTitle:=NIL
    LOCAL aTipCxP:={"CAJ","BCO","CJE","BCE","LBC","CXP"}
 
+/*
    IF !MsgNoYes("Desea Generar Asientos Contables")
       RETURN .T.
    ENDIF
-   
+*/   
    cWhere:="DOC_CODSUC"+GetWhere("=",oLIBCOMFCH:cCodSuc)+" AND "+GetWhereOr("DOC_CXPTIP",aTipCxP)
  
-   EJECUTAR("DPLIBCOMTODPDOCPRO",oLIBCOMFCH:cCodSuc,dFchDec)
+   oLIBCOMFCH:CHKDOCPRO()
+
+// EJECUTAR("DPLIBCOMTODPDOCPRO",oLIBCOMFCH:cCodSuc,dFchDec)
 
    EJECUTAR("BRDOCPRORESXCNT",cWhere,cCodSuc,nPeriodo,dDesde,dHasta,cTitle)
 
@@ -1138,12 +1196,18 @@ FUNCION DPLIBCOM()
   LOCAL dFchPag:=aLine[3]
   LOCAL cNumero:=EJECUTAR("GETNUMPLAFISCAL",oLIBCOMFCH:cCodSuc,"F30",dFchPag)
   LOCAL aTipCxP:={"CAJ","BCO","CJE","BCE","LBC"}
+  LOCAL cSql,oTable,cWhere
 
   dHasta:=aLine[2]
   dDesde:=IF(DAY(dHasta)=15,FCHINIMES(dHasta),FCHINIMES(dHasta)+14)
 
-// ? dFchDec,cNumero,dDesde,dHasta
-  
+  IF LEFT(oDp:cTipCon,1)="O"
+    dDesde:=FCHINIMES(dDesde)
+    dHasta:=FCHFINMES(dHasta)
+  ENDIF
+
+  oLIBCOMFCH:CHKDOCPRO()
+
   EJECUTAR("DPLIBCOM",lConEsp,lPlanilla,oLiq,cCodSuc,dDesde,dHasta,cNumero,lFecha,lFrm,lSemana)
 
   oLibCom:oDesde:VarPut(dDesde,.T.)
@@ -1158,5 +1222,49 @@ FUNCION DPLIBCOM()
 //  oLibCom:HACERQUINCENA()
 
 RETURN NIL
+
+
+FUNCTION BRTIPDOCPRO()
+  LOCAL cWhere:=NIL,cTitle:=NIL
+
+RETURN EJECUTAR("BRTIPDOCPRO",cWhere,oLIBCOMFCH:cCodSuc,oLIBCOMFCH:nPeriodo,oLIBCOMFCH:dDesde,oLIBCOMFCH:dHasta,cTitle)
+
+FUNCTION CHKDOCPRO()
+  LOCAL cSql,oTable,cWhere
+  LOCAL aLine  :=oLIBCOMFCH:oBrw:aArrayData[oLIBCOMFCH:oBrw:nArrayAt]
+  LOCAL dFchDec:=aLine[2]
+  LOCAL dFchPag:=aLine[3]
+  LOCAL dHasta:=aLine[2]
+  LOCAL dDesde:=IF(DAY(dHasta)=15,FCHINIMES(dHasta),FCHINIMES(dHasta)+14)
+
+  IF LEFT(oDp:cTipCon,1)="O"
+     dDesde:=FCHINIMES(dDesde)
+     dHasta:=FCHFINMES(dHasta)
+  ENDIF
+
+  cSql:=[ SELECT  LBC_TIPDOC,LBC_RIF,LBC_NUMFAC,DOC_TIPDOC ]+;
+        [ FROM DPLIBCOMPRASDET ]+;
+        [ LEFT  JOIN DPDOCPRO     ON LBC_CODSUC=DOC_CODSUC AND LBC_TIPDOC=DOC_TIPDOC AND LBC_CODIGO=DOC_CODIGO AND LBC_NUMFAC=DOC_NUMERO AND DOC_TIPTRA='D' ]+;
+        [ INNER JOIN DPTIPDOCPRO  ON LBC_TIPDOC=TDC_TIPO AND TDC_LIBCOM=1  ]+;
+        [ WHERE ]+GetWhereAnd("LBC_FCHDEC",dDesde,dHasta)+[ AND DOC_TIPDOC IS NULL AND LBC_NUMFAC<>"" ]+;
+        [ GROUP BY CONCAT(LBC_NUMPAR,LBC_ITEM) ]+;
+        [ ORDER BY LBC_FECHA ]
+
+  oTable:=OpenTable(cSql,.T.)
+
+  IF oTable:RecCount()>0
+
+     cWhere:=GetWhereAnd("LBC_FCHDEC",dDesde,dHasta)+[ AND DOC_TIPDOC IS NULL AND LBC_NUMFAC<>"" ]+;
+             [ AND TDC_LIBCOM=1 ]
+
+     EJECUTAR("DPLIBCOMTODPDOCPRO",oDp:cSucursal,dHasta,cWhere)
+
+  ENDIF
+
+  oTable:End(.T.)
+
+RETURN .T.
+
+
 // EOF
 

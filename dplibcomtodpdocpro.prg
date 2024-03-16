@@ -11,6 +11,7 @@
 PROCE MAIN(cCodSuc,dFchDec,cWhere)
     LOCAL oTable,cCodPro:=STRZERO(0,10),oTableO,oTableC,oTableISRL:=NIL,oTableRTI:=NIL,cTipDoc,cNumero
     LOCAL oDb:=OpenOdbc(oDp:cDsnData),cOrg:="D",cCxpTip:="",cNumPar,cSql,nCxP,cWhereRet
+    LOCAL cInner:=""
 
     DEFAULT cCodSuc:=oDp:cSucursal,;
             dFchDec:=FCHFINMES(oDp:dFecha)
@@ -43,6 +44,10 @@ IF .F.
     oDb:Execute(cSql)
 ENDIF
 
+    IF "DOC_"$cWhere
+       cInner:=[ LEFT  JOIN DPDOCPRO     ON LBC_CODSUC=DOC_CODSUC AND LBC_TIPDOC=DOC_TIPDOC AND LBC_CODIGO=DOC_CODIGO AND LBC_NUMFAC=DOC_NUMERO AND DOC_TIPTRA='D' ]
+    ENDIF 
+
     oTableO:=OpenTable(" SELECT * FROM DPDOCPRO ",.F.)
 
     // oTableISRL:=OpenTable(" SELECT * FROM DPDOCPROISLR ",.F.) 
@@ -50,15 +55,28 @@ ENDIF
 
     oTable :=OpenTable(" SELECT * FROM DPLIBCOMPRASDET "+;
                        " INNER JOIN DPTIPDOCPRO ON LBC_TIPDOC=TDC_TIPO "+;
+                       cInner+;
                        " WHERE "+cWhere+" ORDER BY CONCAT(LBC_NUMPAR,LBC_ITEM) ",.T.)
-    DpMsgRun("Generando Documentos ")
-    DpMsgSetTotal(oTable:RecCount())
+
+    IF oTable:RecCount()>1
+      DpMsgRun("Generando Documentos ")
+      DpMsgSetTotal(oTable:RecCount())
+    ENDIF
 
     oTable:Gotop()
 
     WHILE !oTable:Eof() 
 
-       DpMsgSet(oTable:RecNo(),.T.,NIL,oTable:LBC_TIPDOC+" "+oTable:LBC_CODIGO+" "+oTable:LBC_NUMFAC)
+       IF oTable:RecCount()>1
+         DpMsgSet(oTable:RecNo(),.T.,NIL,oTable:LBC_TIPDOC+" "+oTable:LBC_CODIGO+" "+oTable:LBC_NUMFAC)
+       ENDIF
+
+       cWhere:="LBC_CODSUC"+GetWhere("=",oTable:LBC_CODSUC)+" AND "+;
+               "LBC_FCHDEC"+GetWhere("=",oTable:LBC_FCHDEC)+" AND "+;
+               "LBC_NUMFAC"+GetWhere("=",oTable:LBC_NUMFAC)+" AND "+;
+               "LBC_CODIGO"+GetWhere("=",oTable:LBC_CODIGO)+" AND "+;
+               "LBC_NUMPAR"+GetWhere("=",oTable:LBC_NUMPAR)+" AND "+;
+               "LBC_ITEM"  +GetWhere("=",oTable:LBC_ITEM  )
 
        IF oTable:LBC_ITEM=STRZERO(1,5)
 
@@ -72,7 +90,7 @@ ENDIF
          nCxP   :=IF(oTable:TDC_CXP="D", 1,nCxP)   
          nCxP   :=IF(oTable:TDC_CXP="C",-1,nCxP)
 
-         cWhere:=oTable:cWhere+" AND LBC_NUMPAR"+GetWhere("=",oTable:LBC_NUMPAR)+" AND LBC_ITEM  "+GetWhere("=",oTable:LBC_ITEM)
+         // cWhere:=oTable:cWhere+" AND LBC_NUMPAR"+GetWhere("=",oTable:LBC_NUMPAR)+" AND LBC_ITEM  "+GetWhere("=",oTable:LBC_ITEM)
 
          IF oTable:LBC_VALCAM=0 .OR. oTable:LBC_VALCAM=1
             oTable:LBC_VALCAM:=EJECUTAR("DPGETVALCAM",oDp:cMonedaExt,oTable:LBC_FECHA)
@@ -110,7 +128,8 @@ ENDIF
          cCxpTip:=IF(ALLTRIM(oTable:LBC_USOCON)=="Banco"       ,"BCO",cCxpTip)
          cCxpTip:=IF(ALLTRIM(oTable:LBC_USOCON)=="Banco Divisa","BCE",cCxpTip)
 
-         SQLUPDATE("DPDOCPRO",{"DOC_RIF","DOC_CXPTIP","DOC_CENCOS","DOC_LBCPAR","DOC_CXP"},{cCodPro,cCxpTip,oTable:LBC_CENCOS,cNumPar,nCxP},cWhere)
+         SQLUPDATE("DPDOCPRO",{"DOC_RIF","DOC_CXPTIP","DOC_CENCOS"     ,"DOC_LBCPAR","DOC_CXP","DOC_CREFIS"     ,"DOC_NODEDU"     },;
+                              {cCodPro  ,cCxpTip     ,oTable:LBC_CENCOS,cNumPar     ,nCxP     ,oTable:LBC_CREFIS,oTable:LBC_NODEDU},cWhere)
 
         ENDIF
 
@@ -213,7 +232,7 @@ ENDIF
            oTableRTI:Replace("RTI_AAMM"  ,LEFT(DTOS(dFchDec),4))	
            oTableRTI:Replace("RTI_PORCEN",oTable:LBC_PORRTI)
            oTableRTI:Replace("RTI_NUMRET",SQLINCREMENTAL("DPDOCPRORTI","RTI_NUMRET","1=1",NIL,NIL,.T.,8))
-           oTableRTI:Replace("RTI_NUMMRT",SQLINCREMENTAL("DPDOCPRORTI","RTI_NUMRET","RTI_CODIGO"+GetWhere("=",cCodigo),NIL,NIL,.T.,8))
+           oTableRTI:Replace("RTI_NUMMRT",SQLINCREMENTAL("DPDOCPRORTI","RTI_NUMRET","RTI_CODIGO"+GetWhere("=",cCodPro),NIL,NIL,.T.,8))
            oTableRTI:Commit("")
 
         
@@ -270,11 +289,52 @@ ENDIF
           oTableC:Replace("CCD_CTAMOD",oDp:cCtaMod      )
           oTableC:Replace("CCD_CENCOS",oTable:LBC_CENCOS)
           oTableC:Replace("CCD_ACT"   ,1                )
-          oTableC:Replace("CCD_MONTO" ,oTable:LBC_MTOBAS)
-          oTableC:Replace("CCD_TOTAL" ,oTable:LBC_MTONET)
+          oTableC:Replace("CCD_MONTO" ,oTable:LBC_MTOBAS-oTable:LBC_MTOEXE)
+          oTableC:Replace("CCD_TOTAL" ,oTable:LBC_MTONET-oTable:LBC_MTOEXE)
           oTableC:Replace("CCD_TIPTRA","D"              )
           oTableC:Replace("CCD_CODPRO",cCodPro          )
           oTableC:Commit(oTableC:cWhere)
+
+          // Aqui va el monto Exento
+          IF oTable:LBC_MTOEXE>0
+
+            oTableC:AppendBlank()
+
+            IF Empty(oTable:LBC_CENCOS)
+              oTableC:Replace("CCD_CENCOS",oDp:cCenCos)
+            ELSE
+              oTableC:Replace("CCD_CENCOS",oTable:LBC_CENCOS)
+            ENDIF
+
+            IF Empty(oTable:LBC_CODCTA)
+              oTable:Replace("LBC_CODCTA",oDp:cCtaIndef)
+            ENDIF
+
+            IF Empty(oTable:LBC_CTAEGR)
+              oTable:Replace("LBC_CTAEGR",oDp:cCtaIndef)
+            ENDIF
+
+            oTableC:Replace("CCD_CODSUC",cCodSuc          )
+            oTableC:Replace("CCD_TIPDOC",cTipDoc          )
+            oTableC:Replace("CCD_CODIGO",cCodPro          )
+            oTableC:Replace("CCD_NUMERO",cNumero          )
+            oTableC:Replace("CCD_ITEM"  ,STRZERO(VAL(oTable:LBC_ITEM)+1,5))
+            oTableC:Replace("CCD_TIPIVA","EX"             )
+            oTableC:Replace("CCD_PORIVA",0)
+            oTableC:Replace("CCD_DESCRI",oTable:LBC_DESCRI)
+            oTableC:Replace("CCD_CTAEGR",oTable:LBC_CTAEGR)
+            oTableC:Replace("CCD_CODCTA",oTable:LBC_CODCTA)
+            oTableC:Replace("CCD_CTAMOD",oDp:cCtaMod      )
+            oTableC:Replace("CCD_CENCOS",oTable:LBC_CENCOS)
+            oTableC:Replace("CCD_ACT"   ,1                )
+            oTableC:Replace("CCD_MONTO" ,oTable:LBC_MTOEXE)
+            oTableC:Replace("CCD_TOTAL" ,oTable:LBC_MTOEXE)
+            oTableC:Replace("CCD_TIPTRA","D"              )
+            oTableC:Replace("CCD_CODPRO",cCodPro          )
+            oTableC:Commit("")
+
+          ENDIF
+
           oTableC:End(.T.)
 
           oTable:DbSkip()
@@ -293,8 +353,8 @@ ENDIF
     // oTable:Browse()
     oTable:End()
 
-    oTableISRL:End(.T.)
-    oTableRTI:End(.T.)
+    IF(ValType(oTableISRL)="O",oTableISRL:End(.T.),NIL)
+    IF(ValType(oTableRTI )="O",oTableRTI:End(.T.) ,NIL)
 
     oDb:EXECUTE("SET FOREIGN_KEY_CHECKS = 1")
 
