@@ -26,6 +26,7 @@ PROCE MAIN(oRecDiv,cCodSuc,aData,cRecNum,dFecha,cCenCos,nValCam,cCodVen,cDbOrg)
    oDbOrg :=OpenOdbc(cDbOrg)
 
    oTableD:=OpenTable("SELECT * FROM DPDOCCLI",.F.,oDbDes)
+   oTableD:lAuditar:=.F.
 
    ADEPURA(aData,{|a,n| !(a[11] .AND. !Empty(a[9]))})
 

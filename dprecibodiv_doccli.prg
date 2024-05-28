@@ -28,6 +28,9 @@ PROCE MAIN(cCodigo,aTipDoc,cWhereNot,lAnticipo,lPagoC,oBrwD,cDb)
       EJECUTAR("ADDFIELDS_2301",NIL,.T.)
    ENDIF
 
+   // Requieren nombre de la moneda
+   SQLUPDATE("DPBANCOTIP","TDB_CODMON",oDp:cMoneda,"TDB_CODMON"+GetWhere("=","")+" OR TDB_CODMON IS NULL")
+
 //   SQLUPDATE("DPDOCCLI","DOC_VALCAM",1,"DOC_CODIGO"+GetWhere("=",cCodigo)+" AND DOC_VALCAM=0")
 
    IF lPagoC
@@ -121,9 +124,11 @@ PROCE MAIN(cCodigo,aTipDoc,cWhereNot,lAnticipo,lPagoC,oBrwD,cDb)
 
      aData2:=ASQL(cSql2)
 
+     // ? CLPCOPY(cSql2),"AQUI ES"
+
      AEVAL(aData2,{|a,n| aData2[n]:=ASIZE(aData2[n],15)}) 
 
-     AEVAL(aData2,{|a,n| AADD(aData,a)})
+    // AEVAL(aData2,{|a,n| AADD(aData,a)}) // 24/02/2024 Duplicaba el registro
 
   ENDIF
 
@@ -133,8 +138,11 @@ PROCE MAIN(cCodigo,aTipDoc,cWhereNot,lAnticipo,lPagoC,oBrwD,cDb)
      DPWRITE("TEMP\RECIBOSCLIDOCCLI.SQL",oDp:cSql)
   ENDIF
 
+// ? CLPCOPY(cSql)
+
   AEVAL(aData,{|a,n|aData[n,12] :=SAYOPTIONS("DPTIPDOCCLI","TDC_CXC",a[12])})
 
+  // ViewArray(aData)
   // Crea el Registro de Anticipo
 
   IF lAnticipo

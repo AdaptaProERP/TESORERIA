@@ -11,6 +11,7 @@
 PROCE MAIN(cCodSuc,cRecibo,cTipDoc,cTipDes,cSerie)
     LOCAL aNumDoc:={},cNumero,dFecha,lReset:=.F.,cWhere,nMtoPag:=0,nMtoDif:=0,oTableO,oTableD,cWhereD,oDb:=OpenOdbc(oDp:cDsnData)
     LOCAL cAplOrg:="V",cImpFis:=""
+    LOCAL nValCam:=0,lDifCam:=.F.
 
     DEFAULT cCodSuc:=oDp:cSucursal,;
             cTipDoc:="CUO",;
@@ -45,7 +46,7 @@ PROCE MAIN(cCodSuc,cRecibo,cTipDoc,cTipDes,cSerie)
 
     aNumDoc:=ATABLE("SELECT DOC_NUMERO FROM DPDOCCLI WHERE DOC_CODSUC"+GetWhere("=",cCodSuc)+" AND DOC_RECNUM"+GetWhere("=",cRecibo)+" AND DOC_TIPDOC"+GetWhere("=",cTipDoc)+" AND DOC_TIPTRA"+GetWhere("=","P"))
 
-// ? LEN(aNumDoc),CLPCOPY(oDp:cSql)
+//  ? LEN(aNumDoc),CLPCOPY(oDp:cSql)
 
     IF Empty(aNumDoc)
        RETURN ""
@@ -55,12 +56,15 @@ PROCE MAIN(cCodSuc,cRecibo,cTipDoc,cTipDes,cSerie)
 
     cWhereD:=GetWhereOr("DOC_NUMERO",aNumDoc)
 
-    dFecha :=SQLGET("DPRECIBOSCLI","REC_FECHA","REC_CODSUC"+GetWhere("=",cCodSuc)+" AND REC_NUMERO"+GetWhere("=",cRecibo))
+    dFecha :=SQLGET("DPRECIBOSCLI","REC_FECHA,REC_VALCAM,REC_DIFCAM","REC_CODSUC"+GetWhere("=",cCodSuc)+" AND REC_NUMERO"+GetWhere("=",cRecibo))
+    nValCam:=DPSQLROW(2) // Valor Cambiario
+    lDifCam:=DPSQLROW(3) // Aplicó diferencial cambiario
 
     cNumero:=EJECUTAR("DPDOCCLIGENDOC",cCodSuc,cTipDoc,aNumDoc,cTipDes,lReset,dFecha,.F.)
 
     cNumero:=IF(ValType(cNumero)="C",cNumero,oDp:cNumero)
 
+// ? cNumero,"factura generada,DPRECIBODIVCUOFAV"
 
     // ? cNumero,"cNumero,creado"
     // Desactiva Todas las cuotas, ahora debe crear la diferencia cambiaria.
@@ -86,7 +90,8 @@ PROCE MAIN(cCodSuc,cRecibo,cTipDoc,cTipDes,cSerie)
 
     SQLUPDATE("DPDOCCLI",{"DOC_SERFIS","DOC_DOCORG"},{cSerie,cAplOrg},oTableO:cWhere)
     oTableD:=OpenTable("SELECT * FROM DPDOCCLI",.F.)
-   
+    oTableD:lAuditar:=.F.
+
     AEVAL(oTableO:aFields,{|a,n| oTableD:FieldPut(n,oTableO:FieldGet(n))})
     oTableD:Replace("DOC_TIPTRA","P")
     oTableD:Replace("DOC_CXC"   ,-1 )
@@ -96,8 +101,8 @@ PROCE MAIN(cCodSuc,cRecibo,cTipDoc,cTipDes,cSerie)
 //   oTableO:DOC_NETO,nMtoPag,"MONTO NETO"
 
     oTableD:Commit("")
-    oTableD:End()
-    oTableO:End()
+    oTableD:End(.T.)
+    oTableO:End(.T.)
 
 // ? "cNumero",cNumero,"cTipDes",cTipDes
 

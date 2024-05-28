@@ -29,6 +29,7 @@ PROCE MAIN(oRecDiv,cCodSuc,aData,cRecNum,cCodCli,cCodCaja,dFecha,cNomCli,cCenCos
 
   oRecibo:=oRecDiv:oRecibo
   oNew   :=OpenTable("SELECT * FROM DPCAJAMOV",.F.)
+  oNew:lAuditar:=.F.
 
   FOR I=1 TO LEN(aData)
 

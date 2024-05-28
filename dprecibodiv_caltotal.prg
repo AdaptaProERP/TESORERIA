@@ -20,6 +20,7 @@ PROCE MAIN(oRecDiv,lRefresh)
    aTotalD         :=ATOTALES(oRecDiv:oBrwD:aArrayData)
 
    oRecDiv:nMtoDifCam:=0
+   oRecDiv:nMtoIGTF  :=0
 
    IF oRecDiv:lCruce
 

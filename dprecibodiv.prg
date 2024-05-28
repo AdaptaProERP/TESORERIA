@@ -117,9 +117,9 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
    LOCAL lCuotasPrg:=COUNT("DPCLIENTEPROG","DPG_CODIGO"+GetWhere("=",cCodigo))>0
 
 
-   DEFINE FONT oFont    NAME "Tahoma" SIZE 0, -12 
-   DEFINE FONT oFontB   NAME "Tahoma" SIZE 0, -12 BOLD
-   DEFINE FONT oFontBrw NAME "Tahoma" SIZE 0, -11 BOLD
+   DEFINE FONT oFont    NAME "Tahoma" SIZE 0, -10 
+   DEFINE FONT oFontB   NAME "Tahoma" SIZE 0, -10 BOLD
+   DEFINE FONT oFontBrw NAME "Tahoma" SIZE 0, -10 BOLD
 
    DpMdi(cTitle,"oRecDiv","DPRECIBOSDIV.EDT")
 
@@ -304,7 +304,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
 
 
    oCol:=oRecDiv:oBrw:aCols[3]
-   oCol:cHeader      :="Sugerido"+CRLF+"Divisa"
+   oCol:cHeader      :="Remanente/Sugerido"+CRLF+"Divisa"
    oCol:bLClickHeader:= {|r,c,f,o| SortArray( o, oRecDiv:oBrw:aArrayData ) } 
    oCol:nWidth       := 110
    oCol:nDataStrAlign:= AL_RIGHT 
@@ -845,6 +845,7 @@ FUNCTION ViewDatBar()
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\XSAVE.BMP",NIL,"BITMAPS\XSAVEG.BMP";
+          TOP PROMPT "Grabar"; 
           WHEN oRecDiv:nTotal=0 .AND. oRecDiv:nMtoPag>0 .AND. oRecDiv:nMtoDoc>0 ;
           ACTION oRecDiv:RECGRABAR()
 
@@ -865,6 +866,7 @@ FUNCTION ViewDatBar()
             NOBORDER;
             FONT oFont;
             FILENAME "BITMAPS\PLANTILLAS.BMP";
+            TOP PROMPT "Cuotas"; 
             ACTION oRecDiv:GENCUOTAS()
 
      oBtn:cToolTip:="Agregar Cuotas"
@@ -875,6 +877,7 @@ FUNCTION ViewDatBar()
             OF oBar;
             NOBORDER;
             FONT oFont;
+            TOP PROMPT "Recarga"; 
             FILENAME "BITMAPS\REFRESH.BMP";
             ACTION oRecDiv:RELOADDOCS(.T.)
 
@@ -892,6 +895,7 @@ FUNCTION ViewDatBar()
             NOBORDER;
             FONT oFont;
             FILENAME "BITMAPS\CLIENTE.BMP";
+            TOP PROMPT "Cliente"; 
             ACTION EJECUTAR("DPCLIENTESCON",NIL,oRecDiv:cCodigo)
 
      oBtn:cToolTip:="Consultar Cliente"
@@ -905,7 +909,7 @@ FUNCTION ViewDatBar()
             OF oBar;
             NOBORDER;
             FONT oFont;
-            FILENAME "BITMAPS\\VIEW.BMP";
+            FILENAME "BITMAPS\VIEW.BMP";
             ACTION EJECUTAR("BRWRUNLINK",oRecDiv:oBrw,oRecDiv:cSql)
 
      oBtn:cToolTip:="Consultar Vinculos"
@@ -919,6 +923,7 @@ FUNCTION ViewDatBar()
             NOBORDER;
             FONT oFont;
             FILENAME "BITMAPS\divisas.BMP";
+            TOP PROMPT "Divisa"; 
             ACTION oRecDiv:REFRESH_DIVISA()
 
    oBtn:cToolTip:="Refrescar Divisas"
@@ -929,6 +934,7 @@ FUNCTION ViewDatBar()
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\ZOOM.BMP";
+          TOP PROMPT "Zoom"; 
           ACTION IF(oRecDiv:oWnd:IsZoomed(),oRecDiv:oWnd:Restore(),oRecDiv:oWnd:Maximize())
 
    oBtn:cToolTip:="Maximizar"
@@ -939,6 +945,7 @@ FUNCTION ViewDatBar()
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\XFIND.BMP";
+          TOP PROMPT "Buscar"; 
           ACTION EJECUTAR("BRWSETFIND",oRecDiv:oBrw)
 
    oBtn:cToolTip:="Buscar"
@@ -947,7 +954,8 @@ FUNCTION ViewDatBar()
           OF oBar;
           NOBORDER;
           FONT oFont;
-          FILENAME "BITMAPS\\FILTRAR.BMP";
+          FILENAME "BITMAPS\FILTRAR.BMP";
+          TOP PROMPT "Filtrar"; 
           MENU EJECUTAR("BRBTNMENUFILTER",oRecDiv:oBrwFocus,oRecDiv);
           ACTION EJECUTAR("BRWSETFILTER",oRecDiv:oBrwFocus)
 
@@ -958,7 +966,8 @@ FUNCTION ViewDatBar()
           OF oBar;
           NOBORDER;
           FONT oFont;
-          FILENAME "BITMAPS\\OPTIONS.BMP",NIL,"BITMAPS\\OPTIONSG.BMP";
+          FILENAME "BITMAPS\OPTIONS.BMP",NIL,"BITMAPS\\OPTIONSG.BMP";
+          TOP PROMPT "Opciones"; 
           ACTION EJECUTAR("BRWSETOPTIONS",oRecDiv:oBrwFocus);
           WHEN LEN(oRecDiv:oBrwFocus:aArrayData)>1
 
@@ -968,6 +977,7 @@ FUNCTION ViewDatBar()
           OF oBar;
           NOBORDER;
           FONT oFont;
+          TOP PROMPT "Excel"; 
           FILENAME "BITMAPS\EXCEL.BMP";
           ACTION (EJECUTAR("BRWTOEXCEL",oRecDiv:oBrwFocus,"oRecDiv:cTitle",oRecDiv:cNomCli))
 
@@ -980,6 +990,7 @@ FUNCTION ViewDatBar()
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\html.BMP";
+          TOP PROMPT "Html"; 
           ACTION (EJECUTAR("BRWTOHTML",oRecDiv:oBrwoRecDiv:oBrwFocus))
 
    oBtn:cToolTip:="Generar Archivo html"
@@ -991,6 +1002,7 @@ FUNCTION ViewDatBar()
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\xTOP.BMP";
+          TOP PROMPT "Primero"; 
           ACTION (oRecDiv:oBrw:GoTop(),oRecDiv:oBrw:Setfocus())
 
 /*
@@ -1018,6 +1030,7 @@ ENDIF
           NOBORDER;
           FONT oFont;
           FILENAME "BITMAPS\xFIN.BMP";
+          TOP PROMPT "Ultimo"; 
           ACTION (oRecDiv:oBrw:GoBottom(),oRecDiv:oBrw:Setfocus())
 
 
@@ -1025,7 +1038,8 @@ ENDIF
           OF oBar;
           NOBORDER;
           FONT oFont;
-          FILENAME "BITMAPS\\XSALIR.BMP";
+          TOP PROMPT "Cerrar"; 
+          FILENAME "BITMAPS\XSALIR.BMP";
           ACTION oRecDiv:Close()
 
   oRecDiv:oBrw:SetColor(0,oRecDiv:nClrPane1)
@@ -1037,7 +1051,7 @@ ENDIF
 
   AEVAL(oBar:aControls,{|o,n|o:SetColor(CLR_BLACK,oDp:nGris)})
 
-  oRecDiv:SETBTNBAR(45,45,oBar)
+  oRecDiv:SETBTNBAR(45+2,45+3,oBar)
   
   @ 8,10 SAY "Código "        RIGHT OF oBar BORDER 
   @ 8,80 SAY "Fecha Trans. "  RIGHT OF oBar BORDER
@@ -1258,11 +1272,13 @@ ENDIF
    oCol:cHeader      :="Id"
    oCol:bLClickHeader:= {|r,c,f,o| SortArray( o, oRecDiv:oBrwR:aArrayData ) } 
    oCol:nWidth       := 40
+   oCol:oDataFont    :=oFontB
 
    oCol:=oRecDiv:oBrwR:aCols[2]
    oCol:cHeader      :="Moneda"
    oCol:bLClickHeader:= {|r,c,f,o| SortArray( o, oRecDiv:oBrwR:aArrayData ) } 
    oCol:nWidth       := 120+40
+   oCol:oDataFont    :=oFontB
 
    oCol:=oRecDiv:oBrwR:aCols[3]
    oCol:cHeader      :="Recibido"
@@ -1272,16 +1288,19 @@ ENDIF
    oCol:nHeadStrAlign:= AL_RIGHT 
    oCol:nFootStrAlign:= AL_RIGHT 
    oCol:bStrData     :={|nMonto|nMonto:= oRecDiv:oBrwR:aArrayData[oRecDiv:oBrwR:nArrayAt,3],FDP(nMonto,"999,999,999.99")}
+   oCol:oDataFont    :=oFontB
+
 
    oCol:=oRecDiv:oBrwR:aCols[4]
    oCol:cHeader      :="Equiv. "+oDp:cMoneda
    oCol:bLClickHeader:= {|r,c,f,o| SortArray( o, oRecDiv:oBrwR:aArrayData ) }
    oCol:cEditPicture := "999,999,999,999.99"
-    oCol:nWidth       := 110
+   oCol:nWidth       := 110
    oCol:nDataStrAlign:= AL_RIGHT 
    oCol:nHeadStrAlign:= AL_RIGHT 
-   oCol:nFootStrAlign:= AL_RIGHT 
-   oCol:bStrData     :={|nMonto|nMonto:= oRecDiv:oBrwR:aArrayData[oRecDiv:oBrwR:nArrayAt,4],FDP(nMonto,oDp:cPictValCam)}
+   oCol:nFootStrAlign:= AL_RIGHT
+   oCol:oDataFont    :=oFontB
+    oCol:bStrData    :={|nMonto|nMonto:= oRecDiv:oBrwR:aArrayData[oRecDiv:oBrwR:nArrayAt,4],FDP(nMonto,oDp:cPictValCam)}
   
    oCol:=oRecDiv:oBrwR:aCols[5]
    oCol:cHeader      :="Recibido en "+oDp:cMoneda
@@ -1358,6 +1377,12 @@ FUNCTION RUNCLICK()
 
   ENDIF
 
+//  IF oRecDiv:nMtoIGTF=oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,5]
+//     oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,11]:=0
+//  ENDIF
+
+
+
   IF (oRecDiv:oBrw:nColSel=oRecDiv:nColSelP .OR. oRecDiv:oBrw:nColSel=3) .AND. (oRecDiv:nMtoDoc>0 .OR. oRecDiv:nMtoPag>0)
 
      // no existe Sugerido
@@ -1395,6 +1420,12 @@ FUNCTION RUNCLICK()
         // 16/10/2022 
         oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,4]:=aLine[3]
         oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,5]:=ROUND(aLine[3]*aLine[2],2) 
+
+        // 22/05/2024, IGTF Pagado con COP no aplica
+        IF oRecDiv:nMtoIGTF=oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,5]
+           oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,11]:=0
+        ENDIF
+
         aTotalP :=ATOTALES(oRecDiv:oBrw:aArrayData)
 
         IF oRecDiv:cTipDes="OPA" .OR. oRecDiv:cTipDes="OIN"
@@ -1844,6 +1875,12 @@ FUNCTION PUTMONTO(oCol,uValue,nCol,nAt,lRefresh)
   oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,nCol]:=uValue
   oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,5   ]:=ROUND(uValue*aLine[2],2)
 
+  IF oRecDiv:nMtoIGTF=oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,5]
+     oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,11]:=0
+  ENDIF
+
+
+// ? oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,5   ],"ES IGUAL AL MONTO DEL IGTF NO DEBE APLICARLO NUEVAMENTE",oRecDiv:nMtoIGTF
 //  oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,10  ]:=uValue-aLine[5]
 
   oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,oRecDiv:nColSelP]:=(uValue>0)
@@ -1936,6 +1973,10 @@ FUNCTION RECGRABAR()
     EJECUTAR("DPRECGRABARCLI",oRecDiv)
   ELSE
     EJECUTAR("DPRECGRABARPRO",oRecDiv)
+  ENDIF
+
+  IF ValType(oRecDiv:oFrmLnk)="O" .AND. oRecDiv:oFrmLnk:oWnd:hWnd>0
+     oRecDiv:oFrmLnk:BRWREFRESCAR()
   ENDIF
 
 RETURN 

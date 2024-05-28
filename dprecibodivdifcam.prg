@@ -215,15 +215,7 @@ PROCE MAIN(cCodSuc,cRecibo,lReset,nMtoIGTF,lCxC,cDbOrg,lIGTF,oRecDiv)
         aDataD:=EJECUTAR("DPDOCCLIRATAIVA",oTableO:DOC_CODSUC,oTableO:DOC_TIPDOC,oTableO:DOC_NUMERO,nMonto)
       ENDIF
 
-/*
-VIEWARRAY(aDataD)
-
-IF lIGTF
-   ? "DEBE GENERARLO SEGUN DOCUMENTO MOTIVO, SIN IVA"
-ENDIF
-*/
-
-// ViewArray(aDataD)	
+      // ViewArray(aDataD)	
 
       FOR U=1 TO LEN(aDataD)
         
@@ -244,7 +236,9 @@ ENDIF
         oTableD:Replace("CCD_CODCTA",cCodCta        )
         oTableD:Replace("CCD_CTAMOD",oDp:cCtaMod    )
         oTableD:Replace("CCD_CENCOS",oTableO:DOC_CENCOS)
-        oTableD:Replace("CCD_ACT"   ,1              )
+        oTableD:Replace("CCD_ACT"   ,1                 )
+        oTableD:Replace("CCD_CODIGO",oTableO:DOC_CODIGO)
+        oTableD:Replace("CCD_FECHA" ,oRecDiv:dFecha    )
         oTableD:Commit()
 
      NEXT U

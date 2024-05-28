@@ -55,6 +55,8 @@ PROCE MAIN(oRecDiv,cCodSuc,aData,cRecNum,cCodCli,cCodCaja,dFecha,cNomCli,cCenCos
     nIDB:=EJECUTAR("IDBCAL",cTipDoc,nMonto,dFecha)
 
     oNew:Append()
+    oNew:lAuditar:=.F.
+
 
     oNew:Replace("MOB_NUMTRA",SQLINCREMENTAL("DPCTABANCOMOV","MOB_NUMTRA",;
                    "    MOB_CUENTA"+GetWher	e("=",cCtaBco)+;
