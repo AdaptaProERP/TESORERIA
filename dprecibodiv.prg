@@ -304,7 +304,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
 
 
    oCol:=oRecDiv:oBrw:aCols[3]
-   oCol:cHeader      :="Remanente/Sugerido"+CRLF+"Divisa"
+   oCol:cHeader      :="Remanente"+CRLF+"Sugerido"
    oCol:bLClickHeader:= {|r,c,f,o| SortArray( o, oRecDiv:oBrw:aArrayData ) } 
    oCol:nWidth       := 110
    oCol:nDataStrAlign:= AL_RIGHT 
@@ -1762,6 +1762,17 @@ FUNCTION CALDIVISA(aData,oBrw)
 
 RETURN aData
 
+FUNCTION CALSUG(nMtoSug,nMoneda,cCodMon)
+    LOCAL nMonto:=0
+
+    IF cCodMon=oDp:cCodCop
+       nMonto:=EJECUTAR("CALCOP",nMtoSug,oRecDiv:nValCam)
+    ELSE
+       nMonto:=ROUND(nMtoSug/nMoneda,2)
+    ENDIF
+
+RETURN nMonto
+
 /*
 // Sugerido en Panel de Pagos
 */
@@ -1776,12 +1787,26 @@ FUNCTION SETSUGERIDO()
 
    FOR I=1 TO LEN(aData)
 
-      IF aData[I,7]=oRecDiv:cCodMon //  Si cambia la divisa del Cliente debe hacerlo tambien con los intrumentos de caja oDp:cMonedaExt
-         aData[I,2]:=oRecDiv:nValCam
+      // 31/05/2024
+
+      // aData[I,3]:=oRecDiv:CALSUG(nMtoSug,aData[I,7])
+      aData[I,3]:=oRecDiv:CALSUG(nMtoSug,aData[I,2],aData[I,7])
+
+/*
+      IF aData[I,7]=oDp:cCodCop
+
+        aData[I,3]:=EJECUTAR("CALCOP",nMtoSug,oRecDiv:nValCam)
+
+      ELSE
+
+        IF aData[I,7]=oRecDiv:cCodMon //  Si cambia la divisa del Cliente debe hacerlo tambien con los intrumentos de caja oDp:cMonedaExt
+          aData[I,2]:=oRecDiv:nValCam
+        ENDIF
+
+        aData[I,3]:=ROUND(nMtoSug/aData[I,2],2) 
+
       ENDIF
-
-      aData[I,3]:=ROUND(nMtoSug/aData[I,2],2) 
-
+*/
    NEXT I
 
    IF oRecDiv:nTotal<0
@@ -1789,7 +1814,8 @@ FUNCTION SETSUGERIDO()
     nMtoSug:=oRecDiv:nTotal*-1
 
      FOR I=1 TO LEN(aData)
-        aData[I,3]:=ROUND(nMtoSug/aData[I,2],2) 
+        aData[I,3]:=oRecDiv:CALSUG(nMtoSug,aData[I,2],aData[I,7])
+//        aData[I,3]:=ROUND(nMtoSug/aData[I,2],2) 
      NEXT I
 
    ENDIF
@@ -1828,7 +1854,8 @@ FUNCTION SETSUGERIDO()
       nMtoSug:=oRecDiv:nMtoIGTF
 
       FOR I=1 TO LEN(aData)
-        aData[I,3]:=ROUND(nMtoSug/aData[I,2],2) 
+        // aData[I,3]:=ROUND(nMtoSug/aData[I,2],2) 
+        aData[I,3]:=oRecDiv:CALSUG(nMtoSug,aData[I,2],aData[I,7])
       NEXT I
 
    ENDIF
@@ -1842,7 +1869,8 @@ FUNCTION SETSUGERIDO()
      nMtoSug:=oRecDiv:nTotal*-1
 
      FOR I=1 TO LEN(aData)
-       aData[I,3]:=ROUND(nMtoSug/aData[I,2],2) 
+       aData[I,3]:=oRecDiv:CALSUG(nMtoSug,aData[I,2],aData[I,7])
+//     aData[I,3]:=ROUND(nMtoSug/aData[I,2],2) 
      NEXT I
 
    ENDIF
@@ -1915,8 +1943,15 @@ FUNCTION PUTMTOPAG(nMonto,nCol)
      // Mismo Monto en Dolares
      oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,nCol+1]:=oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,5]
    ELSE
-     oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,nCol+1]:=ROUND(nMonto*oRecDiv:nValCam,2)
-   ENDIF
+
+     IF oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,15] 
+        oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,nCol+1]:=ROUND(nMonto*oRecDiv:nValCam,2)
+     ELSE
+        oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,8     ]:=0      // Sin valor Divisa
+        oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,nCol+1]:=nMonto // documento no se revaloriza
+     ENDIF
+
+  ENDIF
 
    // diferencia cambiaria
    IF nMonto<>0 .AND. oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,15] .AND. oRecDiv:lDifCambiario
@@ -2136,7 +2171,15 @@ FUNCTION ADDIGTF(nAt,lRefresh)
    ELSE
 
       aLine[05]:=aLine[oRecDiv:nColMtoITG]
-      aLine[04]:=ROUND(DIV(aLine[05],aLine[02]),2)
+
+      //31/05/2024 aLine[04]:=ROUND(DIV(aLine[05],aLine[02]),2)
+      // ? "OJO AQUI CALCULA EL IGTF CON LA MISMA MONEDA",aLine[oRecDiv:nColMtoITG],aLine[02],aLine[07]
+
+      aLine[04]:=oRecDiv:CALSUG(aLine[oRecDiv:nColMtoITG],aLine[02],aLine[07])
+
+// ?  aLine[04],"aqui es"
+// nMontoSug,nMoneda,cCodMon
+     
 	 //aLine[06]:=aLine[04]
       aLine[oRecDiv:nColMtoITG]:=0
       aLine[oRecDiv:nColPorITG]:=0
