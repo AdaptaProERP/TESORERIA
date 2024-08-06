@@ -139,6 +139,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
    oRecDiv:dFchReg   :=oDp:dFecha // Fecha de Transacción
    oRecDiv:lPagoC    :=lPagoC     // Pago Centralizado
    oRecDiv:lPagEle   :=.F.
+   oRecDiv:bAfterSave:=NIL
 
    // Para asociarlo con los Pedidos
    oRecDiv:REC_TIPORG:=""
@@ -187,6 +188,8 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
      oRecDiv:cNomCli   :=DPSQLROW(3,"")
      oRecDiv:cNomVen   :=""
    ENDIF
+
+   oRecDiv:cCodMon:=IF(Empty(oRecDiv:cCodMon),oDp:cMonedaExt,oRecDiv:cCodMon)
  
    oRecDiv:nValCam   :=EJECUTAR("DPGETVALCAM",oRecDiv:cCodMon,oRecDiv:dFecha) // nValCam
    oRecDiv:oFrmLnk   :=oFrmLnk // Vinculo con Formulario
@@ -1940,25 +1943,35 @@ FUNCTION PUTMTOPAG(nMonto,nCol)
    oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,nCol  ]:=nMonto
 
    IF nMonto=oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,7] .AND. oRecDiv:nValCam=oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,6] 
+
      // Mismo Monto en Dolares
      oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,nCol+1]:=oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,5]
+
    ELSE
 
      IF oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,15] 
+
         oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,nCol+1]:=ROUND(nMonto*oRecDiv:nValCam,2)
+
      ELSE
+
         oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,8     ]:=0      // Sin valor Divisa
         oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,nCol+1]:=nMonto // documento no se revaloriza
+
      ENDIF
 
   ENDIF
 
    // diferencia cambiaria
    IF nMonto<>0 .AND. oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,15] .AND. oRecDiv:lDifCambiario
+
      nMtoDif:=oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,9]-oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,5]
      oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,10    ]:=nMtoDif
+
    ELSE
+
      oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt,10    ]:=0
+
    ENDIF
 
    // Si el pago es parcial, valor cambiario es 0
@@ -1980,7 +1993,6 @@ FUNCTION PUTMTOPAG(nMonto,nCol)
 
    oCol:=oRecDiv:oBrwD:aCols[10]
    oCol:cFooter      :=FDP(aTotal[10],oCol:cEditPicture)
-
 
    oRecDiv:oBrwD:RefreshFooters()
 
@@ -2014,7 +2026,15 @@ FUNCTION RECGRABAR()
      oRecDiv:oFrmLnk:BRWREFRESCAR()
   ENDIF
 
-RETURN 
+  IF ValType(oRecDiv:bAfterSave)="B"
+     EVAL(oRecDiv:bAfterSave)
+  ENDIF
+
+  IF ValType(oRecDiv:bAfterSave)="C"
+     EVAL(BloqueCod(oRecDiv:bAfterSave))
+  ENDIF
+
+RETURN .T.
 
 FUNCTION VERRECIBO(cNumero)
   LOCAL aLine:=oRecDiv:oBrwD:aArrayData[oRecDiv:oBrwD:nArrayAt]
@@ -2750,5 +2770,18 @@ FUNCTION PUTREFERENCIA(oCol,nValue,nCol)
 
 RETURN .T.
 
-// EOF
+/*
+// Todos los documento son pagados automaticamente, caso del Ticket del Punto de venta.
+*/
+FUNCTION SETAUTOSELDOC()
+  
+   AEVAL(oRecDiv:oBrwD:aArrayData,{|a,n| oRecDiv:oBrwD:aArrayData[n,11]:=.T.,;
+                                         oRecDiv:oBrwD:aArrayData[n,08]:=a[7],; 
+                                         oRecDiv:oBrwD:aArrayData[n,09]:=a[5]}) 
 
+   oRecDiv:CALTOTAL()
+   oRecDiv:SETSUGERIDO()
+
+RETURN .T.
+
+// EOF
