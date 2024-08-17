@@ -8,9 +8,10 @@
 
 #INCLUDE "DPXBASE.CH"
 
-PROCE MAIN(cCodigo,cWhere,cCodSuc,nPeriodo,dDesde,dHasta,cTitle,cTableA,cRif,nValCam,lAnticipo,oFrmLnk,cLetra,lPagoC,aTipDoc,cTipDes,lCruce,lCliente,nMtoDiv)
-   LOCAL aData,aFechas,cFileMem:="USER\BRPLANTILLADOC.MEM",V_nPeriodo:=4,cCodPar
-   LOCAL V_dDesde:=CTOD(""),V_dHasta:=CTOD("")
+PROCE MAIN(cCodigo,cWhere,cCodSuc,nOption,cNumRec,cDisponibl,cTitle,cTableA,cRif,nValCam,lAnticipo,oFrmLnk,cLetra,lPagoC,aTipDoc,cTipDes,lCruce,lCliente,nMtoDiv)
+   LOCAL aData,aFechas
+   LOCAL cFileMem :="USER\DPRECIBODIV.MEM",cCodPar
+   LOCAL V_cNumRec:=CTOD("")
    LOCAL cServer:=oDp:cRunServer,aVars:={}
    LOCAL lConectar:=.F.,cSql,aDataD,aDataR:={}
    LOCAL nColIsMon:=14-1
@@ -26,22 +27,21 @@ PROCE MAIN(cCodigo,cWhere,cCodSuc,nPeriodo,dDesde,dHasta,cTitle,cTableA,cRif,nVa
            lCruce   :=.F.  ,;
            lCliente :=.T.  ,;
            cCodSuc  :=oDp:cSucursal,;
-           nMtoDiv  :=0
+           nMtoDiv  :=0,;
+           nOption  :=1,;
+           cNumRec  :=""
 
    // Sitio donde obtiene los datos del cliente
    DEFAULT oDp:cRunData:=oDp:cDsnData 
 
    // cTipDes="TIK" // documento destino, caso de punto de venta Mostrador
 
-   // lPagoC=Pago Central
-
    IF ISPCPRG() .AND. .F.
       aTipDoc:={"PED"}
       lPagoC :=.T.
    ENDIF
 
-   // cTipDoc  :=IF(LEN(aTipDoc)>0,cTipDoc,cTipDoc)
-  
+ 
    IF cTipDes="OPA"
       lCliente :=.F.
       lAnticipo:=.F.
@@ -51,9 +51,6 @@ PROCE MAIN(cCodigo,cWhere,cCodSuc,nPeriodo,dDesde,dHasta,cTitle,cTableA,cRif,nVa
       lCliente :=.T.
       lAnticipo:=.F.
    ENDIF
-
-   EJECUTAR("DPRECIBOSDIVINST")
-
 
    // DEFAULT cCodigo:="A-243"
 
@@ -77,16 +74,32 @@ PROCE MAIN(cCodigo,cWhere,cCodSuc,nPeriodo,dDesde,dHasta,cTitle,cTableA,cRif,nVa
 
    cTitle:=IF(lCliente,"Recibos de Ingresos CxC en Divisas ","Comprobante de Pago de CxP en Divisas")+IF(Empty(cTitle),"",cTitle)
 
+  
    oDp:oFrm:=NIL
 
-   DEFAULT cCodSuc :=oDp:cSucursal,;
-           nPeriodo:=4,;
-           dDesde  :=CTOD(""),;
-           dHasta  :=CTOD(""),;
-           cWhere  :="",;
-           cTableA :="DPAUDELIMODCNF"	
+   DEFAULT cCodSuc   :=oDp:cSucursal,;
+           nOption   :=1 ,;
+           cDisponibl:="",;
+           cWhere    :="",;
+           cTableA   :="DPAUDELIMODCNF"
 
-   aData:=TIPCAJBCO	(NIL,cRif,nValCam,NIL,nColIsMon,lCliente)
+   IF nOption=1
+      cTitle:="INCLUIR "+cTitle
+   ENDIF	
+
+   IF nOption=2
+      cTitle:="CONSULTAR "+cTitle
+   ENDIF	
+
+   IF nOption=3
+      cTitle:="MODIFICAR "+cTitle
+   ENDIF	
+
+
+
+
+
+   aData:=TIPCAJBCO(NIL,cRif,nValCam,NIL,nColIsMon,lCliente,cNumRec,cCodSuc)
 
    cSql :=oDp:cWhere
 
@@ -97,12 +110,11 @@ PROCE MAIN(cCodigo,cWhere,cCodSuc,nPeriodo,dDesde,dHasta,cTitle,cTableA,cRif,nVa
 
    IF lCliente
      // aDataD:=LEERDOCCLI(cCodigo,aTipDoc,NIL,lAnticipo,lPagoC)
-     aDataD:=EJECUTAR("DPRECIBODIV_DOCCLI",cCodigo,aTipDoc,NIL,lAnticipo,lPagoC,NIL,oDp:cRunData)
+     aDataD:=EJECUTAR("DPRECIBODIV_DOCCLI",cCodigo,aTipDoc,NIL,lAnticipo,lPagoC,NIL,oDp:cRunData,cNumRec,cCodSuc)
    ELSE
-     aDataD:=EJECUTAR("DPRECIBODIV_DOCPRO",cCodigo,aTipDoc,NIL,lAnticipo,lPagoC,NIL,oDp:cRunData)
+     aDataD:=EJECUTAR("DPRECIBODIV_DOCPRO",cCodigo,aTipDoc,NIL,lAnticipo,lPagoC,NIL,oDp:cRunData,cNumRec,cCodSuc)
    ENDIF
 
-   // AADD(aDataR,{"USD","Dolares"          ,0 ,0  ,0,0})
    ViewData(aData,cTitle,oDp:cWhere,aDataD)
 
    oDp:oFrm:=oRecDiv
@@ -116,7 +128,6 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
    LOCAL aCoors    :=GetCoors( GetDesktopWindow() )
    LOCAL lCuotasPrg:=COUNT("DPCLIENTEPROG","DPG_CODIGO"+GetWhere("=",cCodigo))>0
 
-
    DEFINE FONT oFont    NAME "Tahoma" SIZE 0, -10 
    DEFINE FONT oFontB   NAME "Tahoma" SIZE 0, -10 BOLD
    DEFINE FONT oFontBrw NAME "Tahoma" SIZE 0, -10 BOLD
@@ -128,13 +139,12 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
    oRecDiv:Windows(0,0,aCoors[3]-160,aCoors[4]-10,.T.) // Maximizado
 
    oRecDiv:lMsgBar   :=.F.
-   oRecDiv:cPeriodo  :=aPeriodos[nPeriodo]
    oRecDiv:cCodSuc   :=cCodSuc
-   oRecDiv:nPeriodo  :=nPeriodo
+   oRecDiv:nOption   :=nOption // POR DEFECTO Ingresa Incluyendo
    oRecDiv:cNombre   :=""
-   oRecDiv:dDesde    :=dDesde
+   oRecDiv:cNumRec   :=cNumRec
    oRecDiv:cServer   :=cServer
-   oRecDiv:dHasta    :=dHasta
+   oRecDiv:cDisponibl:=cDisponibl
    oRecDiv:dFecha    :=oDp:dFecha
    oRecDiv:dFchReg   :=oDp:dFecha // Fecha de Transacción
    oRecDiv:lPagoC    :=lPagoC     // Pago Centralizado
@@ -144,10 +154,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
    // Para asociarlo con los Pedidos
    oRecDiv:REC_TIPORG:=""
    oRecDiv:REC_NUMORG:=""
-
    
-   
-
    oRecDiv:cHora     :=oDp:cHora
    oRecDiv:cWhere    :=cWhere
    oRecDiv:cWhere_   :=cWhere_
@@ -292,7 +299,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
    oCol:=oRecDiv:oBrw:aCols[1]
    oCol:cHeader      :="Moneda"
    oCol:bLClickHeader := {|r,c,f,o| SortArray( o, oRecDiv:oBrw:aArrayData ) } 
-   oCol:nWidth       := 120-40
+   oCol:nWidth       := 120-90
 
 
    oCol:=oRecDiv:oBrw:aCols[2]
@@ -309,7 +316,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
    oCol:=oRecDiv:oBrw:aCols[3]
    oCol:cHeader      :="Remanente"+CRLF+"Sugerido"
    oCol:bLClickHeader:= {|r,c,f,o| SortArray( o, oRecDiv:oBrw:aArrayData ) } 
-   oCol:nWidth       := 110
+   oCol:nWidth       := 110-5
    oCol:nDataStrAlign:= AL_RIGHT 
    oCol:nHeadStrAlign:= AL_RIGHT 
    oCol:nFootStrAlign:= AL_RIGHT 
@@ -318,7 +325,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
    oCol:=oRecDiv:oBrw:aCols[4]
    oCol:cHeader      :="Recibido"+CRLF+"Divisa"
    oCol:bLClickHeader:= {|r,c,f,o| SortArray( o, oRecDiv:oBrw:aArrayData ) } 
-   oCol:nWidth       := 120
+   oCol:nWidth       := 120-10
    oCol:nDataStrAlign:= AL_RIGHT 
    oCol:nHeadStrAlign:= AL_RIGHT 
    oCol:nFootStrAlign:= AL_RIGHT 
@@ -332,7 +339,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
    oCol:=oRecDiv:oBrw:aCols[5]
    oCol:cHeader      :="Equivalente"+CRLF+"Recibido "+oDp:cMoneda
    oCol:bLClickHeader:= {|r,c,f,o| SortArray( o, oRecDiv:oBrw:aArrayData ) } 
-   oCol:nWidth       := 120
+   oCol:nWidth       := 120-20
    oCol:nDataStrAlign:= AL_RIGHT 
    oCol:nHeadStrAlign:= AL_RIGHT 
    oCol:nFootStrAlign:= AL_RIGHT 
@@ -399,7 +406,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
    oCol:=oRecDiv:oBrw:aCols[oRecDiv:nColMtoITG]
    oCol:cHeader      :="Monto"+CRLF+"IGTF "
    oCol:bLClickHeader:= {|r,c,f,o| SortArray( o, oRecDiv:oBrw:aArrayData ) } 
-   oCol:nWidth       := 80
+   oCol:nWidth       := 80-5
    oCol:nDataStrAlign:= AL_RIGHT 
    oCol:nHeadStrAlign:= AL_RIGHT 
    oCol:nFootStrAlign:= AL_RIGHT 
@@ -418,7 +425,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
    oCol:=oRecDiv:oBrw:aCols[15-1]
    oCol:cHeader      :="Marca"+CRLF+"Financiera"
    oCol:bLClickHeader := {|r,c,f,o| SortArray( o, oRecDiv:oBrw:aArrayData ) } 
-   oCol:nWidth       := 120
+   oCol:nWidth       := 120-10
 
    oCol:=oRecDiv:oBrw:aCols[16-1]
    oCol:cHeader      :="Banco"
@@ -428,7 +435,7 @@ FUNCTION ViewData(aData,cTitle,cWhere_,aDataD)
    oCol:=oRecDiv:oBrw:aCols[17-1]
    oCol:cHeader      :="Cuenta"+CRLF+"Bancaria"
    oCol:bLClickHeader := {|r,c,f,o| SortArray( o, oRecDiv:oBrw:aArrayData ) } 
-   oCol:nWidth       := 120
+   oCol:nWidth       := 120-20
 
    oCol:=oRecDiv:oBrw:aCols[18-1]
    oCol:cHeader       :="Referencia"
@@ -787,6 +794,10 @@ ENDIF
   ENDIF
 
   oDp:oCliRec:=oRecDiv
+
+  IF !Empty(oRecDiv:cNumRec)
+     oRecDiv:SETSUGERIDO()
+  ENDIF
 
 //oRecDiv:oBrwD:Hide()
 //)
@@ -1161,8 +1172,8 @@ ENDIF
                  ACTION oRecDiv:LBXCODVEN();
                  SIZE 48,20 OF oBar
 
-    oRecDiv:oCenCos:bLostFocus:={||oRecDiv:VALCODVEN()}
-    oRecDiv:oCenCos:bKeyDown  :={|nKey|IF(nKey=13,oRecDiv:VALCODVEN(),NIL)}
+    oRecDiv:oCodVen:bLostFocus:={||oRecDiv:VALCODVEN()}
+    oRecDiv:oCodVen:bKeyDown  :={|nKey|IF(nKey=13,oRecDiv:VALCODVEN(),NIL)}
 
   ENDIF
 
@@ -1576,7 +1587,7 @@ RETURN .T.
 FUNCTION LEEFECHAS()
 RETURN .T.
 
-FUNCTION HACERWHERE(dDesde,dHasta,cWhere_,lRun)
+FUNCTION HACERWHERE(cNumRec,dHasta,cWhere_,lRun)
 RETURN cWhere
 
 FUNCTION LEERDATA(cWhere,oBrw,cServer,cTableA)
@@ -1620,8 +1631,8 @@ RETURN NIL
 FUNCTION PUTBANCO(oCol,uValue,nCol)
    LOCAL oColEdit:=oRecDiv:oBrw:aCols[17-1]
    LOCAL aCuentas:=ACLONE(oDp:aCuentaBco)
-
-   ADEPURA(aCuentas,{|a,n| !ALLTRIM(a[1])=ALLTRIM(uValue)})
+  
+   ADEPURA(aCuentas,{|a,n|!ALLTRIM(a[1])=ALLTRIM(uValue)})
 
    AEVAL(aCuentas,{|a,n| aCuentas[n]:=a[2]})
 
@@ -1632,7 +1643,7 @@ FUNCTION PUTBANCO(oCol,uValue,nCol)
      oColEdit:nEditType     :=EDIT_LISTBOX
      oColEdit:aEditListTxt  :=ACLONE(aCuentas)
      oColEdit:aEditListBound:=ACLONE(aCuentas)
-     oColEdit:bOnPostEdit   :={|oCol,uValue|oRecDiv:PUTCUENTA(oCol,uValue,17-1)} // Debe seleccionar las cuentas bancarias
+     oColEdit:bOnPostEdit   :={|oCol,uValue|oRecDiv:SETMARCAF(uValue ),oRecDiv:PUTCUENTA(oCol,uValue,17-1)} // Debe seleccionar las cuentas bancarias
      oRecDiv:oBrw:nColSel   :=17-1
 
    ELSE
@@ -1641,9 +1652,11 @@ FUNCTION PUTBANCO(oCol,uValue,nCol)
      oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,17-1]:=aCuentas[1]
      oRecDiv:oBrw:nColSel   :=18-1
 
+     oRecDiv:SETMARCAF(aCuentas[1]) // Seleccionar Marca
+ 
    ENDIF
 
-   // Editar Referencia
+   // EDITAR REFERENCIA
    oColEdit:=oRecDiv:oBrw:aCols[18-1]
    oColEdit:nEditType     :=1
    oColEdit:bOnPostEdit   :={|oCol,uValue|oRecDiv:PUTREFERENCIA(oCol,uValue,17)} 
@@ -1652,7 +1665,52 @@ FUNCTION PUTBANCO(oCol,uValue,nCol)
 
 RETURN .T.
 
+/*
+// Marca Financiera según Banco
+*/
+FUNCTION SETMARCAF(cCodCta)
+   LOCAL cTipIns :=oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,09] // Instrumento Bancario
+   LOCAL aMarcasF:=ACLONE(oDp:aBancoTipIslr)
+   LOCAL oColEdit:=oRecDiv:oBrw:aCols[14]
+
+   ADEPURA(aMarcasF,{|a,n|!a[2]=cTipIns})
+
+   IF !Empty(cCodCta) 
+     ADEPURA(aMarcasF,{|a,n|!a[1]=LEFT(cCodCta,4)})
+   ENDIF
+
+   AEVAL(aMarcasF,{|a,n| aMarcasF[n]:=a[3]})
+
+   IF LEN(aMarcasF)>1
+
+     oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,14]:=aMarcasF[1]
+
+     oColEdit:nEditType     :=EDIT_LISTBOX
+     oColEdit:aEditListTxt  :=ACLONE(aMarcasF)
+     oColEdit:aEditListBound:=ACLONE(aMarcasF)
+     oColEdit:bOnPostEdit   :={|oCol,uValue|oRecDiv:PUTMARCAF(oCol,uValue,14)} // Debe seleccionar las cuentas bancarias
+     oRecDiv:oBrw:nColSel   :=14
+
+   ELSE
+
+     oColEdit:nEditType     :=0
+     oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,14]:=IF(Empty(aMarcasF),SPACE(20),aMarcasF[1])
+     oRecDiv:oBrw:nColSel   :=14
+
+   ENDIF
+
+RETURN .T.
+
+FUNCTION PUTMARCAF(oCol,uValue,nCol)
+
+   oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,nCol]:=uValue
+   oRecDiv:oBrw:DrawLine(.T.)
+
+RETURN .T.
+
 FUNCTION PUTCUENTA(oCol,uValue,nCol)
+
+   oRecDiv:SETMARCAF(uValue)
 
    oRecDiv:oBrw:aArrayData[oRecDiv:oBrw:nArrayAt,17-1]:=uValue
    oRecDiv:oBrw:DrawLine(.T.)
@@ -1726,8 +1784,8 @@ RETURN .T.
 /*
 // Lectura del Estado de Cuenta Bancario
 */
-FUNCTION TIPCAJBCO(oRecDiv,cRif,nValCam,oBrw,nColIsMon,lCliente)
-RETURN EJECUTAR("DPRECIBODIV_CAJBCO",oRecDiv,cRif,nValCam,oBrw,nColIsMon,lCliente)
+FUNCTION TIPCAJBCO(oRecDiv,cRif,nValCam,oBrw,nColIsMon,lCliente,cNumRec,cCodSuc)
+RETURN EJECUTAR("DPRECIBODIV_CAJBCO",oRecDiv,cRif,nValCam,oBrw,nColIsMon,lCliente,cNumRec,cCodSuc)
 
 FUNCTION CALDIVISA(aData,oBrw)
    LOCAL I,nMtoEqv,oCol,aTotalP:={},nSaldo:=oRecDiv:nMontoBs,nTotalRecB:=0,nAt:=0,nMtoIGTF:=0
@@ -2775,6 +2833,14 @@ RETURN .T.
 */
 FUNCTION SETAUTOSELDOC()
   
+   // un solo documento oculta el browse y queda toda el area para el formulario de pago.
+   IF LEN(oRecDiv:oBrwD:aArrayData)=1
+     oRecDiv:oHSplit:Hide()
+     oRecDiv:oBrwD:Hide()
+     oRecDiv:oWnd:oClient := oRecDiv:oBrw
+     IF(oRecDiv:oWnd:IsZoomed(),oRecDiv:oWnd:Restore(),oRecDiv:oWnd:Maximize())
+   ENDIF
+
    AEVAL(oRecDiv:oBrwD:aArrayData,{|a,n| oRecDiv:oBrwD:aArrayData[n,11]:=.T.,;
                                          oRecDiv:oBrwD:aArrayData[n,08]:=a[7],; 
                                          oRecDiv:oBrwD:aArrayData[n,09]:=a[5]}) 
